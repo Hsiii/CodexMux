@@ -1020,6 +1020,118 @@ struct NextResetSectionView: View {
     }
 }
 
+struct SlimAccountCardView: View {
+    let account: AccountSnapshot
+    let displayName: String
+    let onEdit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(displayName)
+                    .font(.headline.weight(.semibold))
+                    .lineLimit(1)
+
+                Button("Edit") {
+                    onEdit()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+
+                Text(tierLabel(for: account.plan))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Spacer()
+            }
+
+            WindowCardView(window: account.weeklyWindow, compact: false)
+
+            if account.rollingWindow.available {
+                WindowCardView(window: account.rollingWindow, compact: true)
+            }
+
+            Text("Resets in \(formatCountdown(nextResetWindow(for: account).resetsAt))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+struct SlimDashboardPanelView: View {
+    @ObservedObject var coordinator: PulseCoordinator
+    @ObservedObject var nicknameStore: NicknameStore
+    @Binding var editingAccount: AccountSnapshot?
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.08, green: 0.11, blue: 0.16),
+                    Color(red: 0.04, green: 0.06, blue: 0.09),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    NextResetSectionView(
+                        accounts: coordinator.cache.accounts,
+                        nicknameStore: nicknameStore
+                    )
+
+                    Text("ACCOUNTS")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(coordinator.cache.accounts) { account in
+                        SlimAccountCardView(
+                            account: account,
+                            displayName: nicknameStore.displayName(for: account),
+                            onEdit: {
+                                editingAccount = account
+                            }
+                        )
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("Sync now") {
+                            Task { @MainActor in
+                                await coordinator.syncNow()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button("Open window") {
+                            openWindow(id: "dashboard")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Spacer()
+
+                        Button("Quit") {
+                            NSApplication.shared.terminate(nil)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(16)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 struct DashboardView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
@@ -1076,49 +1188,25 @@ struct DashboardView: View {
 
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
-    @Environment(\.openWindow) private var openWindow
+    @StateObject private var nicknameStore = NicknameStore()
+    @State private var editingAccount: AccountSnapshot?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("CodexBoard")
-                .font(.headline)
-
-            Text(coordinator.statusLine)
-                .font(.subheadline)
-
-            Text("Accounts: \(coordinator.accountCount)")
-                .foregroundStyle(.secondary)
-
-            if let lastSyncedAt = coordinator.lastSyncedAt {
-                Text("Last sync: \(formatRelative(lastSyncedAt))")
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack {
-                Button("Open dashboard") {
-                    openWindow(id: "dashboard")
+        SlimDashboardPanelView(
+            coordinator: coordinator,
+            nicknameStore: nicknameStore,
+            editingAccount: self.$editingAccount
+        )
+        .frame(width: 440, height: 620)
+        .sheet(item: self.$editingAccount) { account in
+            AccountEditorView(
+                account: account,
+                initialNickname: nicknameStore.nickname(for: account),
+                onSave: { nickname in
+                    nicknameStore.saveNickname(nickname, for: account)
                 }
-
-                Button("Sync now") {
-                    Task { @MainActor in
-                        await coordinator.syncNow()
-                    }
-                }
-            }
-
-            Divider()
-
-            Text("Cache: \(CodexBoardPaths.cache.path(percentEncoded: false))")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
+            )
         }
-        .frame(width: 360)
-        .padding(16)
     }
 }
 
