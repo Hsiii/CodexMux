@@ -1,5 +1,0 @@
-{
-    "functionURL": "https://your-project-ref.supabase.co/functions/v1/ingest-codex-snapshot",
-    "tokenID": "desktop-default",
-    "token": "replace-with-your-ingest-token"
-}

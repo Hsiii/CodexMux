@@ -85,16 +85,6 @@ func buildSnapshotKey(
     [accountId, plan, workspaceLabel].joined(separator: "::")
 }
 
-struct SupabaseConfig: Codable {
-    let functionURL: String
-    let tokenID: String
-    let token: String
-}
-
-struct SupabaseFunctionPayload: Codable {
-    let accounts: [AccountSnapshot]
-}
-
 struct SystemAuthIdentity {
     let accessToken: String
     let accountId: String?
@@ -131,7 +121,6 @@ enum CodexBoardPaths {
         .appendingPathComponent(".codexboard", isDirectory: true)
     static let cache = root.appendingPathComponent("cache.json", isDirectory: false)
     static let config = root.appendingPathComponent("accounts.json", isDirectory: false)
-    static let supabase = root.appendingPathComponent("supabase.json", isDirectory: false)
     static let sample = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         .appendingPathComponent("../../storage/sample-cache.json")
         .standardizedFileURL
@@ -210,9 +199,7 @@ final class PulseCoordinator: ObservableObject {
     )
 
     private let decoder = JSONDecoder()
-    private let encoder = JSONEncoder()
     private let cacheStore = CacheStore()
-    private var timer: Timer?
     private var hasStarted = false
 
     var accountCount: Int {
@@ -227,11 +214,6 @@ final class PulseCoordinator: ObservableObject {
         self.hasStarted = true
         self.cache = self.cacheStore.load()
         self.lastSyncedAt = self.cache.meta.generatedAt
-
-        Task {
-            await self.syncNow()
-            self.scheduleNextSync()
-        }
     }
 
     func syncNow() async {
@@ -254,7 +236,6 @@ final class PulseCoordinator: ObservableObject {
             )
 
             try self.cacheStore.save(merged)
-            try await self.syncSupabaseIfConfigured(cache: merged)
             self.cache = merged
             self.lastSyncedAt = merged.meta.generatedAt
             self.statusLine = "Synced \(merged.accounts.count) account(s)"
@@ -263,35 +244,11 @@ final class PulseCoordinator: ObservableObject {
         }
     }
 
-    private func scheduleNextSync() {
-        let config = self.loadConfig()
-
-        self.timer?.invalidate()
-        self.timer = Timer.scheduledTimer(
-            withTimeInterval: max(config.pollIntervalSeconds, 60),
-            repeats: true
-        ) { [weak self] _ in
-            Task { @MainActor in
-                await self?.syncNow()
-            }
-        }
-    }
-
     private func loadConfig() -> PulseConfig {
         guard let data = try? Data(contentsOf: CodexBoardPaths.config),
               let config = try? self.decoder.decode(PulseConfig.self, from: data)
         else {
             return .default
-        }
-
-        return config
-    }
-
-    private func loadSupabaseConfig() -> SupabaseConfig? {
-        guard let data = try? Data(contentsOf: CodexBoardPaths.supabase),
-              let config = try? self.decoder.decode(SupabaseConfig.self, from: data)
-        else {
-            return nil
         }
 
         return config
@@ -649,43 +606,6 @@ final class PulseCoordinator: ObservableObject {
         return "Codex \(rawPlan.prefix(1).uppercased())\(rawPlan.dropFirst())"
     }
 
-    private func syncSupabaseIfConfigured(cache: CachePayload) async throws {
-        guard let config = self.loadSupabaseConfig() else {
-            return
-        }
-
-        guard !cache.accounts.isEmpty else {
-            return
-        }
-
-        guard let url = URL(string: config.functionURL) else {
-            throw PulseError.invalidUsageResponse
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(config.tokenID, forHTTPHeaderField: "x-codexboard-token-id")
-        request.setValue(config.token, forHTTPHeaderField: "x-codexboard-token")
-        request.httpBody = try self.encoder.encode(
-            SupabaseFunctionPayload(accounts: cache.accounts)
-        )
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              200 ..< 300 ~= httpResponse.statusCode
-        else {
-            if let message = String(data: data, encoding: .utf8), !message.isEmpty {
-                print("Supabase ingest failed: \(message)")
-            }
-            throw PulseError.invalidUsageResponse
-        }
-    }
-}
-
-private func formatHours(_ minutes: Int) -> String {
-    String(format: "%.1fh", Double(minutes) / 60)
 }
 
 private func formatCountdown(_ value: String) -> String {
@@ -1102,14 +1022,6 @@ struct SlimDashboardPanelView: View {
                     }
 
                     HStack(spacing: 8) {
-                        Button("Sync now") {
-                            Task { @MainActor in
-                                await coordinator.syncNow()
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
                         Button("Open window") {
                             openWindow(id: "dashboard")
                         }
@@ -1129,6 +1041,9 @@ struct SlimDashboardPanelView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .task {
+            await coordinator.syncNow()
+        }
     }
 }
 
@@ -1174,6 +1089,9 @@ struct DashboardView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .task {
+            await coordinator.syncNow()
+        }
         .sheet(item: self.$editingAccount) { account in
             AccountEditorView(
                 account: account,
