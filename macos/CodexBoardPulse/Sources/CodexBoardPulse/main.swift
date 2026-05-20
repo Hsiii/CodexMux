@@ -803,22 +803,32 @@ final class NicknameStore: ObservableObject {
         self.nicknames = UserDefaults.standard.dictionary(forKey: self.defaultsKey) as? [String: String] ?? [:]
     }
 
+    private func storageKey(for account: AccountSnapshot) -> String {
+        let normalizedEmail = account.email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        return normalizedEmail.isEmpty ? account.accountId : normalizedEmail
+    }
+
     func displayName(for account: AccountSnapshot) -> String {
-        let nickname = self.nicknames[account.accountId]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let nickname = self.nicknames[self.storageKey(for: account)]?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return nickname.isEmpty ? account.label : nickname
     }
 
     func nickname(for account: AccountSnapshot) -> String {
-        self.nicknames[account.accountId] ?? ""
+        self.nicknames[self.storageKey(for: account)] ?? ""
     }
 
     func saveNickname(_ value: String, for account: AccountSnapshot) {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = self.storageKey(for: account)
 
         if trimmed.isEmpty {
-            self.nicknames.removeValue(forKey: account.accountId)
+            self.nicknames.removeValue(forKey: key)
         } else {
-            self.nicknames[account.accountId] = trimmed
+            self.nicknames[key] = trimmed
         }
 
         UserDefaults.standard.set(self.nicknames, forKey: self.defaultsKey)
