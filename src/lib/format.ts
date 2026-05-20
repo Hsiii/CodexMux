@@ -20,6 +20,10 @@ export function formatHours(totalMinutes: number): string {
 }
 
 export function formatWindowLabel(window: UsageWindow): string {
+    if (window.available === false) {
+        return 'Not exposed for this account.';
+    }
+
     return `${formatDuration(window.remainingMinutes)} left of ${window.label.toLowerCase()}`;
 }
 
@@ -28,6 +32,10 @@ export function formatPercentage(value: number): string {
 }
 
 export function formatCountdown(resetAt: string): string {
+    if (resetAt === '') {
+        return 'n/a';
+    }
+
     const diffMs = new Date(resetAt).getTime() - Date.now();
 
     if (diffMs <= 0) {

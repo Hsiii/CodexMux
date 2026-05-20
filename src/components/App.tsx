@@ -69,6 +69,42 @@ function getPaceTone(pace: AccountSnapshot['pace']): string {
 }
 
 function renderWindow(window: UsageWindow, icon: JSX.Element): JSX.Element {
+    if (window.available === false) {
+        return (
+            <article className='window-card window-card-muted'>
+                <div className='window-heading'>
+                    <div className='window-label'>
+                        {icon}
+                        <span>{window.label}</span>
+                    </div>
+                    <span className='window-percent'>n/a</span>
+                </div>
+
+                <div aria-hidden='true' className='meter-shell'>
+                    <div
+                        aria-hidden='true'
+                        className='meter-fill meter-fill-muted'
+                        style={
+                            {
+                                '--meter-width': '0%',
+                            } as CSSProperties
+                        }
+                    />
+                </div>
+
+                <div className='window-metrics'>
+                    <strong>Unavailable</strong>
+                    <span>{formatWindowLabel(window)}</span>
+                </div>
+
+                <div className='window-reset'>
+                    <span>Resets in</span>
+                    <strong>n/a</strong>
+                </div>
+            </article>
+        );
+    }
+
     return (
         <article className='window-card'>
             <div className='window-heading'>
@@ -192,15 +228,21 @@ function renderAccount(account: AccountSnapshot): JSX.Element {
 
 function renderSummary(cache: CachePayload): JSX.Element {
     const accountCount = cache.accounts.length;
-    const weeklyMinutes = cache.accounts.reduce(
-        (sum, account) => sum + account.weeklyWindow.usedMinutes,
-        0
-    );
-    const rollingMinutes = cache.accounts.reduce(
-        (sum, account) => sum + account.rollingWindow.usedMinutes,
-        0
-    );
+    let weeklyMinutes = 0;
+    let rollingMinutes = 0;
+
+    for (const account of cache.accounts) {
+        if (account.weeklyWindow.available !== false) {
+            weeklyMinutes += account.weeklyWindow.usedMinutes;
+        }
+
+        if (account.rollingWindow.available !== false) {
+            rollingMinutes += account.rollingWindow.usedMinutes;
+        }
+    }
+
     const mostUrgentReset: AccountSnapshot | undefined = [...cache.accounts]
+        .filter((account) => account.rollingWindow.available !== false)
         .toSorted(
             (left: AccountSnapshot, right: AccountSnapshot) =>
                 new Date(left.rollingWindow.resetsAt).getTime() -
@@ -272,9 +314,10 @@ export function App(): JSX.Element {
                             cycling through.
                         </h1>
                         <p className='hero-lede'>
-                            The browser view stays local. Small account agents
-                            keep pushing fresh weekly, rolling 5-hour, pace, and
-                            reset data into a shared cache so you can decide
+                            The current system account is pulled automatically
+                            from your local Codex auth state. Extra accounts can
+                            still push fresh weekly, rolling 5-hour, pace, and
+                            reset data into the same cache so you can decide
                             where to spend the next prompt without tab hopping.
                         </p>
 
@@ -339,8 +382,10 @@ export function App(): JSX.Element {
                             </div>
                             <strong>Account-isolated</strong>
                             <p>
-                                Each feeder keeps its own cookie and only emits
-                                sanitized usage windows into the cache.
+                                The ambient Codex account comes from
+                                `~/.codex/auth.json`; feeder accounts can keep
+                                their own cookies and only emit sanitized usage
+                                windows into the cache.
                             </p>
                         </div>
                     </div>
@@ -373,7 +418,8 @@ export function App(): JSX.Element {
                     <p>
                         The cards below are normalized snapshots. They do not
                         depend on holding every account open in the browser at
-                        once.
+                        once, and the current system account is discovered
+                        automatically.
                     </p>
                 </div>
 

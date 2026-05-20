@@ -1,4 +1,5 @@
 export interface UsageWindow {
+    available?: boolean;
     label: string;
     usedMinutes: number;
     limitMinutes: number;
