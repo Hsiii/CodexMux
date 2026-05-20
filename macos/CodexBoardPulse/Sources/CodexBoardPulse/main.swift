@@ -689,6 +689,17 @@ private func tierLabel(for plan: String) -> String {
     return plan
 }
 
+private func compactAccountTag(for account: AccountSnapshot) -> String? {
+    let tier = tierLabel(for: account.plan)
+
+    if tier == "Free" {
+        return nil
+    }
+
+    let workspace = account.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+    return workspace.isEmpty ? tier : workspace
+}
+
 private func windowDuration(for window: UsageWindow) -> TimeInterval? {
     let label = window.label.lowercased()
 
@@ -974,10 +985,12 @@ struct SlimAccountCardView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.mini)
 
-                Text(tierLabel(for: account.plan))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if let tag = compactAccountTag(for: account) {
+                    Text(tag)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
                 Spacer()
             }
