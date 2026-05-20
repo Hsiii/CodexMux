@@ -4,7 +4,7 @@ export default [
     ...completeConfigBase,
 
     {
-        ignores: ['dist/**', 'node_modules/**', 'vite.config.ts'],
+        ignores: ['dist/**', 'node_modules/**'],
     },
 
     {
@@ -16,17 +16,12 @@ export default [
                     avoidEscape: true,
                 },
             ],
-            '@typescript-eslint/explicit-module-boundary-types': 'off',
             'import-x/no-unassigned-import': [
                 'error',
                 {
                     allow: ['**/*.css'],
                 },
             ],
-            'import-x/no-default-export': 'off',
-            'n/file-extension-in-import': 'off',
-            'perfectionist/sort-jsx-props': 'off',
-            'unicorn/prefer-query-selector': 'off',
         },
     },
 ];

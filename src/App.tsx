@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { ArrowUpRight, Layers3, Sparkles } from 'lucide-react';
 
 const featureList = [
@@ -6,7 +7,7 @@ const featureList = [
     'React Query and Lucide ready to use',
 ];
 
-export default function App() {
+export function App(): JSX.Element {
     return (
         <main className='app-shell'>
             <section className='hero-panel'>
@@ -28,8 +29,8 @@ export default function App() {
                     <a
                         className='primary-action'
                         href='https://vite.dev/guide/'
-                        target='_blank'
                         rel='noreferrer'
+                        target='_blank'
                     >
                         Read Vite docs
                         <ArrowUpRight aria-hidden='true' size={16} />
@@ -37,7 +38,7 @@ export default function App() {
                 </div>
             </section>
 
-            <section className='feature-panel' aria-label='Included tooling'>
+            <section aria-label='Included tooling' className='feature-panel'>
                 <div className='panel-heading'>
                     <Layers3 aria-hidden='true' size={18} />
                     Included baseline
