@@ -1015,7 +1015,6 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @Binding var editingAccount: AccountSnapshot?
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         ZStack {
@@ -1044,12 +1043,6 @@ struct SlimDashboardPanelView: View {
                     }
 
                     HStack(spacing: 8) {
-                        Button("Open window") {
-                            openWindow(id: "dashboard")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
                         Spacer()
 
                         Button("Quit") {
@@ -1068,64 +1061,6 @@ struct SlimDashboardPanelView: View {
         }
     }
 }
-
-struct DashboardView: View {
-    @ObservedObject var coordinator: PulseCoordinator
-    @StateObject private var nicknameStore = NicknameStore()
-    @State private var editingAccount: AccountSnapshot?
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.11, blue: 0.16),
-                    Color(red: 0.04, green: 0.06, blue: 0.09),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    NextResetSectionView(
-                        accounts: coordinator.cache.accounts,
-                        nicknameStore: nicknameStore
-                    )
-
-                    Text("ACCOUNTS")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-
-                    ForEach(coordinator.cache.accounts) { account in
-                        AccountCardView(
-                            account: account,
-                            displayName: nicknameStore.displayName(for: account),
-                            onEdit: {
-                                editingAccount = account
-                            }
-                        )
-                    }
-                }
-                .padding(24)
-            }
-        }
-        .preferredColorScheme(.dark)
-        .task {
-            await coordinator.syncNow()
-        }
-        .sheet(item: self.$editingAccount) { account in
-            AccountEditorView(
-                account: account,
-                initialNickname: nicknameStore.nickname(for: account),
-                onSave: { nickname in
-                    nicknameStore.saveNickname(nickname, for: account)
-                }
-            )
-        }
-    }
-}
-
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
@@ -1175,14 +1110,5 @@ struct CodexBoardPulseApp: App {
                 }
         }
         .menuBarExtraStyle(.window)
-
-        Window("CodexBoard", id: "dashboard") {
-            DashboardView(coordinator: coordinator)
-                .task {
-                    coordinator.start()
-                }
-                .frame(minWidth: 1120, minHeight: 760)
-        }
-        .windowResizability(.contentSize)
     }
 }
