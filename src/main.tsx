@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom/client';
 
 import { App } from './App.js';
 
-import './styles/global.css';
+import './index.css';
 
 const queryClient = new QueryClient();
 const rootElement = document.querySelector('#root');
