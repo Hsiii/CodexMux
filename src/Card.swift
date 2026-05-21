@@ -341,9 +341,9 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         LinearGradient(
             stops: [
                 .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0.018), location: 0.18),
-                .init(color: .white.opacity(0.042), location: 0.5),
-                .init(color: .white.opacity(0.018), location: 0.82),
+                .init(color: .white.opacity(0.028), location: 0.18),
+                .init(color: .white.opacity(0.072), location: 0.5),
+                .init(color: .white.opacity(0.028), location: 0.82),
                 .init(color: .white.opacity(0), location: 1),
             ],
             startPoint: .leading,
@@ -393,7 +393,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                 .frame(width: geometry.size.width * 0.62)
                                 .offset(x: geometry.size.width * shimmerTravel)
                                 .blendMode(.screen)
-                                .opacity(0.96)
+                                .opacity(1)
                                 .mask(alignment: .leading) {
                                     surfaceShape.frame(width: geometry.size.width * currentFraction)
                                 }
