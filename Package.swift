@@ -12,7 +12,17 @@ let package = Package(
             name: "CodexBoardPulse",
             path: ".",
             exclude: ["README.md", ".gitignore"],
-            sources: ["main.swift"]
+            sources: [
+                "App.swift",
+                "Model.swift",
+                "Path.swift",
+                "Store.swift",
+                "Pulse.swift",
+                "Format.swift",
+                "Card.swift",
+                "Manage.swift",
+                "Menu.swift",
+            ]
         )
     ]
 )
