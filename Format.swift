@@ -157,23 +157,6 @@ func expectedRemainingPercentage(for window: UsageWindow) -> Double {
     return clampPercentage(100 - ((elapsed / duration) * 100))
 }
 
-func nextResetWindow(for account: AccountSnapshot) -> UsageWindow {
-    guard account.rollingWindow.available,
-          !account.rollingWindow.resetsAt.isEmpty,
-          let rollingReset = ISO8601DateFormatter().date(from: account.rollingWindow.resetsAt)
-    else {
-        return account.weeklyWindow
-    }
-
-    guard !account.weeklyWindow.resetsAt.isEmpty,
-          let weeklyReset = ISO8601DateFormatter().date(from: account.weeklyWindow.resetsAt)
-    else {
-        return account.rollingWindow
-    }
-
-    return rollingReset <= weeklyReset ? account.rollingWindow : account.weeklyWindow
-}
-
 func isFreshResetWindow(_ window: UsageWindow, now: Date = Date()) -> Bool {
     guard window.available,
           window.usedMinutes == 0,
@@ -197,17 +180,15 @@ func sortedAccountsByResetTime(
     let now = Date()
 
     return accounts.sorted { left, right in
-        let leftWindow = nextResetWindow(for: left)
-        let rightWindow = nextResetWindow(for: right)
-        let leftFresh = isFreshResetWindow(leftWindow, now: now)
-        let rightFresh = isFreshResetWindow(rightWindow, now: now)
+        let leftFresh = isFreshResetWindow(left.weeklyWindow, now: now)
+        let rightFresh = isFreshResetWindow(right.weeklyWindow, now: now)
 
         if leftFresh != rightFresh {
             return leftFresh
         }
 
-        let leftDate = ISO8601DateFormatter().date(from: leftWindow.resetsAt)
-        let rightDate = ISO8601DateFormatter().date(from: rightWindow.resetsAt)
+        let leftDate = ISO8601DateFormatter().date(from: left.weeklyWindow.resetsAt)
+        let rightDate = ISO8601DateFormatter().date(from: right.weeklyWindow.resetsAt)
 
         switch (leftDate, rightDate) {
         case let (leftDate?, rightDate?) where leftDate != rightDate:
