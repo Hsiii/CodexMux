@@ -17,6 +17,7 @@ final class PulseCoordinator: ObservableObject {
     private let cacheStore = CacheStore()
     private let accountConfigStore = AccountConfigStore()
     private var hasStarted = false
+    private var syncTimer: Timer?
 
     var accountCount: Int {
         self.cache.accounts.count
@@ -30,6 +31,22 @@ final class PulseCoordinator: ObservableObject {
         self.hasStarted = true
         self.cache = self.cacheStore.load()
         self.lastSyncedAt = self.cache.meta.generatedAt
+
+        // Initial sync
+        Task {
+            await self.syncNow()
+        }
+
+        // Periodic sync every 2 minutes
+        self.syncTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.syncNow()
+            }
+        }
+    }
+
+    deinit {
+        self.syncTimer?.invalidate()
     }
 
     func syncNow() async {
