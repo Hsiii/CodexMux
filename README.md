@@ -1,102 +1,40 @@
 # CodexMux
 
-CodexMux is a native macOS menu bar app that keeps your Codex account limits
-visible, synced, and ranked so you can quickly see which account has room left
-before you start your next task.
+<img src="assets/demo.png" alt="CodexMux demo" >
 
-It is built for the simple workflow first: sign in to the Codex accounts you
-already use, open the app, and let the menu bar tell you where your headroom is.
+A macOS menu bar app to track and sort your Codex account limits at a glance.
 
-## Why it exists
+## Features
 
-Codex usage is easy to lose track of when you work across personal and team
-accounts, multiple workspaces, or different reset windows. CodexMux turns that
-into one local control panel so you do not have to keep checking each account
-manually.
+- Reads sessions and record accounts from `~/.codex/auth.json`.
+- Groups accounts by excess usage.
+- Use local nicknames to hide email addresses.
 
-## What it does
-
-- Reads your current Codex session automatically from `~/.codex/auth.json`
-- Syncs usage into a local cache at `~/.codexmux/cache.json`
-- Normalizes weekly and rolling 5-hour windows into one consistent view
-- Sorts accounts by urgency instead of just listing them alphabetically
-- Keeps a short per-account history so usage changes are easier to read over
-  time
-- Lets you rename accounts locally with nicknames
-
-## First run
-
-1. Sign in to Codex on the machine the way you normally do.
-2. Launch CodexMux.
-3. Open the menu bar app and it will read your current session automatically.
+## Getting Started
 
 Run directly:
 
 ```bash
-cd /Users/hsi/Documents/Projects/Personal/CodexBoard
 swift run CodexMux
 ```
 
-Or build a normal `.app` bundle:
+Or build as an app:
 
 ```bash
-cd /Users/hsi/Documents/Projects/Personal/CodexBoard
 ./scripts/build-app.sh
 open .build/apple/CodexMux.app
 ```
 
-On first launch, CodexMux creates `~/.codexmux/cache.json`.
+## How it Works
 
-## How syncing works
+- **Sync:** Fetches usage from Codex API and caches it locally at `~/.codexmux/cache.json`.
+- **Identity:** Accounts are tracked by `email + plan` to prevent duplicates.
+- **Sorting:** Prioritizes accounts by usage pressure and nearest reset.
 
-For the default setup, CodexMux reads the ambient Codex account from
-`~/.codex/auth.json`, fetches usage from
-`https://chatgpt.com/backend-api/wham/usage`, resolves the workspace name when
-available, and writes the normalized result into the local cache.
+## Privacy
 
-The menu UI reads from that cache, which keeps the app fast and avoids waiting
-on fresh network calls every time you open it.
-
-## How accounts are merged
-
-CodexMux treats an account identity as:
-
-- `email + plan`
-
-This keeps repeated syncs from creating duplicate cards for the same logical
-account. When usage changes, CodexMux appends a fresh history point. When it
-does not change, it does not add noise. The app keeps the latest 12 history
-points per account.
-
-For first-time users, the practical benefit is simple: the account list stays
-stable and readable instead of growing into duplicate snapshots.
-
-## How sorting works
-
-The menu is designed to help you choose where to work next, not just to display
-raw numbers.
-
-Accounts are ordered by:
-
-1. weekly usage pressure versus where the account is expected to be in its reset
-   cycle
-2. nearest weekly reset time
-3. display name
-
-In practice, the accounts most at risk of running tight rise to the top first.
-
-## Privacy and local data
-
-- Current session auth is read from `~/.codex/auth.json`
-- Local cache is stored at `~/.codexmux/cache.json`
-- Optional extra account config is stored at `~/.codexmux/accounts.json`
-- Nicknames are stored locally in `UserDefaults`
-
-The ambient system account does not need manual cookie configuration.
-
-## Advanced: extra accounts
-
-Most people should start by just signing in and opening the app.
+- **Local Only:** All data (auth, cache, and nicknames) is stored locally.
+- **Hidden Emails:** Nicknames are used in the menu bar to keep your email addresses private and off-screen.
 
 If you want to monitor additional accounts independently, you can create
 `~/.codexmux/accounts.json` and add one object per extra account.
