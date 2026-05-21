@@ -266,9 +266,6 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     let bottomCornerRadius: CGFloat
     let contentPadding: CGFloat
     @ViewBuilder let content: Content
-    @State private var shimmerTravel: CGFloat = 1.15
-    private let shimmerWidthFraction: CGFloat = 0.62
-    private let shimmerEndTravel: CGFloat = -0.42
 
     init(
         window: UsageWindow,
@@ -339,24 +336,6 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             .fill(Color.white.opacity(0.06))
     }
 
-    private var shimmerBand: some View {
-        LinearGradient(
-            stops: [
-                .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0.028), location: 0.25),
-                .init(color: .white.opacity(0.072), location: 0.5),
-                .init(color: .white.opacity(0.028), location: 0.75),
-                .init(color: .white.opacity(0), location: 1),
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
-
-    private var shimmerStartTravel: CGFloat {
-        max(currentFraction - (shimmerWidthFraction * 0.5), 0)
-    }
-
     var body: some View {
         content
             .padding(contentPadding)
@@ -393,37 +372,14 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                     }
                             }
                         }
-
-                        if window.available && isActive && currentFraction > 0 {
-                            shimmerBand
-                                .frame(width: geometry.size.width * shimmerWidthFraction)
-                                .offset(x: geometry.size.width * shimmerTravel)
-                                .blendMode(.screen)
-                                .opacity(1)
-                                .mask(alignment: .leading) {
-                                    surfaceShape.frame(width: geometry.size.width * currentFraction)
-                                }
-                                .allowsHitTesting(false)
-                        }
                     }
                 }
             }
             .clipShape(surfaceShape)
-            .onAppear {
-                guard isActive else { return }
-                shimmerTravel = shimmerStartTravel
-                withAnimation(.linear(duration: 4.8).repeatForever(autoreverses: false)) {
-                    shimmerTravel = shimmerEndTravel
-                }
-            }
-            .onChange(of: isActive) { _, active in
-                if active {
-                    shimmerTravel = shimmerStartTravel
-                    withAnimation(.linear(duration: 4.8).repeatForever(autoreverses: false)) {
-                        shimmerTravel = shimmerEndTravel
-                    }
-                } else {
-                    shimmerTravel = shimmerStartTravel
+            .overlay {
+                if isActive {
+                    surfaceShape
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
                 }
             }
     }
