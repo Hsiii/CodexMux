@@ -125,7 +125,7 @@ struct AccountCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
+            HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(displayName)
                         .font(.title3.weight(.semibold))
@@ -134,16 +134,18 @@ struct AccountCardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: false)
 
                 Text(resetPaceText(for: account.weeklyWindow))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 Text(percentageText(for: account.weeklyWindow))
                     .font(.title3.weight(.semibold))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
             WindowCardView(
@@ -174,7 +176,7 @@ struct SlimAccountCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
                 HStack(spacing: 8) {
                     Text(displayName)
                         .font(.headline.weight(.semibold))
@@ -187,17 +189,18 @@ struct SlimAccountCardView: View {
                             .lineLimit(1)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: false)
 
                 Text(resetPaceText(for: account.weeklyWindow))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 Text(percentageText(for: account.weeklyWindow))
                     .font(.headline.weight(.semibold))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
             WindowCardView(
