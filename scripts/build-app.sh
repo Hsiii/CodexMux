@@ -18,7 +18,7 @@ RESOURCE_BUNDLE_PATH="$BIN_DIR/CodexMux_CodexMux.bundle"
 PLIST_PATH="$CONTENTS_DIR/Info.plist"
 VERSION="${CODEXMUX_VERSION:-1.0}"
 BUILD_NUMBER="${CODEXMUX_BUILD_NUMBER:-1}"
-SYNC_TRACKED_BUNDLE="${CODEXMUX_SYNC_TRACKED_BUNDLE:-0}"
+SYNC_TRACKED_BUNDLE="${CODEXMUX_SYNC_TRACKED_BUNDLE:-1}"
 
 if ! command -v sips >/dev/null 2>&1; then
     echo "error: sips is required to render icon assets from $ICON_SOURCE_PATH" >&2
