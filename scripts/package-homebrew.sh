@@ -117,6 +117,7 @@ cask "${CASK_TOKEN}" do
   name "${APP_NAME}"
   desc "macOS menu bar app to track and sort Codex account limits"
   homepage "${HOMEPAGE}"
+  depends_on macos: ">= :sonoma"
 
   app "${APP_FILENAME}"
 

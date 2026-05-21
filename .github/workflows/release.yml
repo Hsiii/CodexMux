@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+      repository:
+        description: GitHub repository that will host the release assets
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  package-macos:
+    runs-on: macos-14
+    env:
+      RELEASE_VERSION: ${{ github.event.release.tag_name != '' && github.event.release.tag_name || inputs.version }}
+      RELEASE_REPOSITORY: ${{ inputs.repository != '' && inputs.repository || github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${RELEASE_VERSION#v}"
+          if [[ -z "$version" ]]; then
+            echo "Missing release version." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build macOS app archive and cask
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t package_output < <(
+            ./scripts/package-homebrew.sh \
+              --version "${{ steps.meta.outputs.version }}" \
+              --repo "${RELEASE_REPOSITORY}"
+          )
+
+          printf '%s\n' "${package_output[@]}"
+
+          for line in "${package_output[@]}"; do
+            case "$line" in
+              archive=*|sha256=*|cask=*)
+                echo "$line" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done
+
+      - name: Upload release assets
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release upload "${{ steps.meta.outputs.tag }}" \
+            "${{ steps.package.outputs.archive }}" \
+            "${{ steps.package.outputs.cask }}" \
+            --clobber
+
+      - name: Upload workflow artifacts
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codexmux-release-${{ steps.meta.outputs.version }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.cask }}
+
+      - name: Publish cask to tap
+        if: github.event_name == 'release' && vars.HOMEBREW_TAP_REPOSITORY != ''
+        env:
+          HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+            echo "HOMEBREW_TAP_TOKEN is not configured; skipping tap update."
+            exit 0
+          fi
+
+          tap_dir="$(mktemp -d)"
+          trap 'rm -rf "$tap_dir"' EXIT
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" "$tap_dir"
+          mkdir -p "$tap_dir/Casks"
+          cp "${{ steps.package.outputs.cask }}" "$tap_dir/Casks/codexmux.rb"
+
+          git -C "$tap_dir" config user.name "github-actions[bot]"
+          git -C "$tap_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git -C "$tap_dir" diff --quiet -- Casks/codexmux.rb; then
+            echo "Tap is already up to date."
+            exit 0
+          fi
+
+          git -C "$tap_dir" add Casks/codexmux.rb
+          git -C "$tap_dir" commit -m "chore: update codexmux to v${{ steps.meta.outputs.version }}"
+          git -C "$tap_dir" push origin HEAD
