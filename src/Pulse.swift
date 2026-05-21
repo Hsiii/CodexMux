@@ -95,7 +95,7 @@ final class PulseCoordinator: ObservableObject {
             accessToken: identity.accessToken,
             cookieHeader: nil,
             workspaceAccountID: workspaceAccountID
-        ) ?? self.defaultWorkspaceLabel(for: identity)
+        ) ?? self.defaultWorkspaceLabel(for: identity, plan: rawUsage["plan_type"] as? String ?? identity.planType)
 
         return try self.normalizeUsage(
             rawUsage,
@@ -265,9 +265,15 @@ final class PulseCoordinator: ObservableObject {
         let payload = try JSONDecoder().decode(WorkspaceIdentity.self, from: data)
         let normalizedWorkspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID)
 
-        let matchingWorkspace = payload.items.first { item in
-            self.normalizeWorkspaceAccountID(item.id) == normalizedWorkspaceAccountID
-        } ?? payload.items.first
+        let matchingWorkspace: WorkspaceItem?
+
+        if let normalizedWorkspaceAccountID {
+            matchingWorkspace = payload.items.first { item in
+                self.normalizeWorkspaceAccountID(item.id) == normalizedWorkspaceAccountID
+            }
+        } else {
+            matchingWorkspace = payload.items.first
+        }
 
         guard let matchingWorkspace else {
             return nil
@@ -429,7 +435,11 @@ final class PulseCoordinator: ObservableObject {
         }
     }
 
-    private func defaultWorkspaceLabel(for identity: SystemAuthIdentity) -> String {
+    private func defaultWorkspaceLabel(for identity: SystemAuthIdentity, plan: String?) -> String {
+        if isPersonalPlan(self.displayPlan(plan)) {
+            return "Personal"
+        }
+
         if let organizationTitle = identity.organizationTitles.first(where: {
             $0.caseInsensitiveCompare("Personal") != .orderedSame
         }) {

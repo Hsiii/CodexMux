@@ -108,11 +108,11 @@ func isPersonalPlan(_ plan: String) -> Bool {
 func normalizedWorkspaceLabel(_ workspaceLabel: String, plan: String) -> String {
     let trimmed = workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if trimmed.caseInsensitiveCompare("free") == .orderedSame {
+    if isPersonalPlan(plan) {
         return "Personal"
     }
 
-    if trimmed.isEmpty && isPersonalPlan(plan) {
+    if trimmed.caseInsensitiveCompare("free") == .orderedSame {
         return "Personal"
     }
 
