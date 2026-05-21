@@ -166,6 +166,21 @@ final class CacheStore {
         try self.encoder.encode(payload).write(to: CodexBoardPaths.cache)
     }
 
+    func removeAccount(withID accountID: String) throws -> CachePayload {
+        let existing = self.load()
+        let filteredAccounts = existing.accounts.filter { $0.accountId != accountID }
+        let payload = CachePayload(
+            meta: CacheMeta(
+                generatedAt: ISO8601DateFormatter().string(from: Date()),
+                cachePath: CodexBoardPaths.cache.path(percentEncoded: false),
+                source: existing.meta.source
+            ),
+            accounts: filteredAccounts
+        )
+        try self.save(payload)
+        return payload
+    }
+
     private func ensureSeeded() {
         if FileManager.default.fileExists(atPath: CodexBoardPaths.cache.path(percentEncoded: false)) {
             return
@@ -195,6 +210,44 @@ final class CacheStore {
     }
 }
 
+final class AccountConfigStore {
+    private let decoder = JSONDecoder()
+    private let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }()
+
+    func load() -> PulseConfig {
+        guard let data = try? Data(contentsOf: CodexBoardPaths.config),
+              let config = try? self.decoder.decode(PulseConfig.self, from: data)
+        else {
+            return .default
+        }
+
+        return config
+    }
+
+    func save(_ config: PulseConfig) throws {
+        try FileManager.default.createDirectory(
+            at: CodexBoardPaths.root,
+            withIntermediateDirectories: true
+        )
+        try self.encoder.encode(config).write(to: CodexBoardPaths.config, options: [.atomic])
+    }
+
+    func removeAccount(withID accountID: String) throws {
+        let existing = self.load()
+        let filteredAccounts = existing.accounts.filter { $0.id != accountID }
+        try self.save(
+            PulseConfig(
+                pollIntervalSeconds: existing.pollIntervalSeconds,
+                accounts: filteredAccounts
+            )
+        )
+    }
+}
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var statusLine = "Idle"
@@ -208,8 +261,8 @@ final class PulseCoordinator: ObservableObject {
         accounts: []
     )
 
-    private let decoder = JSONDecoder()
     private let cacheStore = CacheStore()
+    private let accountConfigStore = AccountConfigStore()
     private var hasStarted = false
 
     var accountCount: Int {
@@ -255,13 +308,22 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func loadConfig() -> PulseConfig {
-        guard let data = try? Data(contentsOf: CodexBoardPaths.config),
-              let config = try? self.decoder.decode(PulseConfig.self, from: data)
-        else {
-            return .default
+        self.accountConfigStore.load()
+    }
+
+    func isRemovable(_ account: AccountSnapshot) -> Bool {
+        self.configAccountID(for: account) != nil
+    }
+
+    func removeAccount(_ account: AccountSnapshot) throws {
+        guard let configAccountID = self.configAccountID(for: account) else {
+            return
         }
 
-        return config
+        try self.accountConfigStore.removeAccount(withID: configAccountID)
+        self.cache = try self.cacheStore.removeAccount(withID: account.accountId)
+        self.lastSyncedAt = self.cache.meta.generatedAt
+        self.statusLine = "Removed \(account.email)"
     }
 
     private func buildSystemSnapshotIfAvailable() async throws -> AccountSnapshot? {
@@ -631,6 +693,23 @@ final class PulseCoordinator: ObservableObject {
         return trimmed.lowercased()
     }
 
+    private func configAccountID(for account: AccountSnapshot) -> String? {
+        guard account.source != "live system auth" else {
+            return nil
+        }
+
+        let snapshotPrefix = account.accountId.components(separatedBy: "::").first ?? account.accountId
+        let normalizedPrefix = snapshotPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !normalizedPrefix.isEmpty else {
+            return nil
+        }
+
+        return self.accountConfigStore.load().accounts.first(where: {
+            $0.id.trimmingCharacters(in: .whitespacesAndNewlines) == normalizedPrefix
+        })?.id
+    }
+
     private func buildWindow(label: String, rawWindow: [String: Any]?) -> UsageWindow {
         guard let rawWindow else {
             return UsageWindow(
@@ -975,6 +1054,30 @@ final class NicknameStore: ObservableObject {
 
         self.persistNicknames(nextNicknames)
     }
+
+    func saveNicknames(_ values: [String: String], for accounts: [AccountSnapshot]) {
+        var nextNicknames = self.loadNicknames()
+
+        for account in accounts {
+            let key = self.storageKey(for: account)
+            let trimmed = values[account.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            if trimmed.isEmpty {
+                nextNicknames.removeValue(forKey: key)
+            } else {
+                nextNicknames[key] = trimmed
+            }
+        }
+
+        self.persistNicknames(nextNicknames)
+    }
+
+    func removeNickname(for account: AccountSnapshot) {
+        let key = self.storageKey(for: account)
+        var nextNicknames = self.loadNicknames()
+        nextNicknames.removeValue(forKey: key)
+        self.persistNicknames(nextNicknames)
+    }
 }
 
 struct WindowCardView: View {
@@ -1068,86 +1171,16 @@ struct WindowCardView: View {
     }
 }
 
-struct AccountEditorView: View {
-    let account: AccountSnapshot
-    let initialNickname: String
-    let onCancel: () -> Void
-    let onSave: (String) -> Void
-
-    @FocusState private var nicknameFieldFocused: Bool
-    @State private var draftNickname: String
-
-    init(
-        account: AccountSnapshot,
-        initialNickname: String,
-        onCancel: @escaping () -> Void,
-        onSave: @escaping (String) -> Void
-    ) {
-        self.account = account
-        self.initialNickname = initialNickname
-        self.onCancel = onCancel
-        self.onSave = onSave
-        self._draftNickname = State(initialValue: initialNickname)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Edit Nickname")
-                .font(.title3.weight(.semibold))
-
-            Text(account.email)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            TextField(account.label, text: self.$draftNickname)
-                .focused(self.$nicknameFieldFocused)
-                .textFieldStyle(.roundedBorder)
-
-            HStack {
-                Spacer()
-
-                Button("Cancel") {
-                    onCancel()
-                }
-
-                Button("Save") {
-                    onSave(self.draftNickname)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(16)
-        .frame(width: 300)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(Color.white.opacity(0.12))
-        }
-        .onAppear {
-            self.nicknameFieldFocused = true
-        }
-    }
-}
-
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
-    let onEdit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 10) {
-                        Text(displayName)
-                            .font(.title3.weight(.semibold))
-                        Button("Edit") {
-                            onEdit()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
+                    Text(displayName)
+                        .font(.title3.weight(.semibold))
 
                     Text(tierLabel(for: account.plan))
                         .font(.caption)
@@ -1205,7 +1238,6 @@ struct NextResetSectionView: View {
 struct SlimAccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
-    let onEdit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1213,16 +1245,6 @@ struct SlimAccountCardView: View {
                 Text(displayName)
                     .font(.headline.weight(.semibold))
                     .lineLimit(1)
-
-                Button {
-                    onEdit()
-                } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 18, height: 18)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
 
                 if let tag = compactAccountTag(for: account) {
                     Text(tag)
@@ -1250,10 +1272,162 @@ struct SlimAccountCardView: View {
     }
 }
 
+struct AccountManagerOverlayView: View {
+    @ObservedObject var coordinator: PulseCoordinator
+    @ObservedObject var nicknameStore: NicknameStore
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    @FocusState private var focusedAccountID: String?
+    @State private var draftNicknames: [String: String]
+    @State private var pendingRemoval: AccountSnapshot?
+    @State private var removalDialogVisible = false
+
+    init(
+        coordinator: PulseCoordinator,
+        nicknameStore: NicknameStore,
+        onCancel: @escaping () -> Void,
+        onSave: @escaping () -> Void
+    ) {
+        self.coordinator = coordinator
+        self.nicknameStore = nicknameStore
+        self.onCancel = onCancel
+        self.onSave = onSave
+        self._draftNicknames = State(
+            initialValue: Dictionary(
+                uniqueKeysWithValues: coordinator.cache.accounts.map { account in
+                    (account.id, nicknameStore.nickname(for: account))
+                }
+            )
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Manage Accounts")
+                .font(.title3.weight(.semibold))
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(coordinator.cache.accounts) { account in
+                        VStack(alignment: .leading, spacing: 10) {
+                            if self.focusedAccountID == account.id {
+                                TextField(
+                                    account.label,
+                                    text: Binding(
+                                        get: { self.draftNicknames[account.id] ?? "" },
+                                        set: { self.draftNicknames[account.id] = $0 }
+                                    )
+                                )
+                                .focused(self.$focusedAccountID, equals: account.id)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit {
+                                    self.focusedAccountID = nil
+                                }
+                            } else {
+                                Button {
+                                    self.focusedAccountID = account.id
+                                } label: {
+                                    Text(self.displayName(for: account))
+                                        .font(.headline.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            HStack(spacing: 12) {
+                                Text(account.email)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+
+                                Spacer()
+
+                                Button("Remove") {
+                                    self.pendingRemoval = account
+                                    self.removalDialogVisible = true
+                                }
+                                .buttonStyle(.plain)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(coordinator.isRemovable(account) ? .red : .secondary)
+                                .disabled(!coordinator.isRemovable(account))
+                            }
+                        }
+                        .padding(14)
+                        .background(Color.white.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+            }
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    onCancel()
+                }
+
+                Button("Save") {
+                    nicknameStore.saveNicknames(self.draftNicknames, for: coordinator.cache.accounts)
+                    self.focusedAccountID = nil
+                    onSave()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 360, height: 460)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(Color.white.opacity(0.12))
+        }
+        .confirmationDialog(
+            "Remove account?",
+            isPresented: self.$removalDialogVisible,
+            titleVisibility: .visible
+        ) {
+            Button("Remove Account", role: .destructive) {
+                guard let account = self.pendingRemoval else {
+                    return
+                }
+
+                try? coordinator.removeAccount(account)
+                nicknameStore.removeNickname(for: account)
+                self.draftNicknames.removeValue(forKey: account.id)
+                self.focusedAccountID = nil
+                self.pendingRemoval = nil
+            }
+
+            Button("Cancel", role: .cancel) {
+                self.pendingRemoval = nil
+            }
+        } message: {
+            if let pendingRemoval {
+                Text(pendingRemoval.email)
+            }
+        }
+        .onChange(of: coordinator.cache.accounts.map(\.id)) { _, accountIDs in
+            self.draftNicknames = self.draftNicknames.filter { accountIDs.contains($0.key) }
+
+            for account in coordinator.cache.accounts where self.draftNicknames[account.id] == nil {
+                self.draftNicknames[account.id] = nicknameStore.nickname(for: account)
+            }
+        }
+    }
+
+    private func displayName(for account: AccountSnapshot) -> String {
+        let nickname = self.draftNicknames[account.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return nickname.isEmpty ? account.label : nickname
+    }
+}
+
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
-    @Binding var editingAccount: AccountSnapshot?
+    @Binding var isManagingAccounts: Bool
 
     var body: some View {
         ZStack {
@@ -1274,15 +1448,19 @@ struct SlimDashboardPanelView: View {
                     ForEach(coordinator.cache.accounts) { account in
                         SlimAccountCardView(
                             account: account,
-                            displayName: nicknameStore.displayName(for: account),
-                            onEdit: {
-                                editingAccount = account
-                            }
+                            displayName: nicknameStore.displayName(for: account)
                         )
                     }
 
                     HStack(spacing: 8) {
                         Spacer()
+
+                        Button("Edit") {
+                            isManagingAccounts = true
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
 
                         Button("Quit") {
                             NSApplication.shared.terminate(nil)
@@ -1303,29 +1481,28 @@ struct SlimDashboardPanelView: View {
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
-    @State private var editingAccount: AccountSnapshot?
+    @State private var isManagingAccounts = false
 
     var body: some View {
         ZStack {
             SlimDashboardPanelView(
                 coordinator: coordinator,
                 nicknameStore: nicknameStore,
-                editingAccount: self.$editingAccount
+                isManagingAccounts: self.$isManagingAccounts
             )
 
-            if let account = self.editingAccount {
+            if self.isManagingAccounts {
                 Color.black.opacity(0.24)
                     .ignoresSafeArea()
 
-                AccountEditorView(
-                    account: account,
-                    initialNickname: nicknameStore.nickname(for: account),
+                AccountManagerOverlayView(
+                    coordinator: coordinator,
+                    nicknameStore: nicknameStore,
                     onCancel: {
-                        self.editingAccount = nil
+                        self.isManagingAccounts = false
                     },
-                    onSave: { nickname in
-                        nicknameStore.saveNickname(nickname, for: account)
-                        self.editingAccount = nil
+                    onSave: {
+                        self.isManagingAccounts = false
                     }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -1334,7 +1511,7 @@ struct PulseMenuView: View {
         }
         .frame(width: 440, height: 620)
         .background(.clear)
-        .animation(.easeOut(duration: 0.16), value: self.editingAccount != nil)
+        .animation(.easeOut(duration: 0.16), value: self.isManagingAccounts)
     }
 }
 
