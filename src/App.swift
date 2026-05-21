@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -6,12 +7,18 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = PulseCoordinator()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
+    private let logger = Logger(subsystem: "dev.hsi.codexmux", category: "menubar")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        self.logger.notice("applicationDidFinishLaunching bundleURL=\(Bundle.main.bundleURL.path(), privacy: .public)")
         self.coordinator.start()
         ProcessInfo.processInfo.disableAutomaticTermination("CodexMux menu bar app")
-        self.installStatusItem()
-        self.installPopover()
+        DispatchQueue.main.async {
+            self.logger.notice("installing status item")
+            self.installStatusItem()
+            self.installPopover()
+            self.logger.notice("status item installed hasButton=\(self.statusItem?.button != nil, privacy: .public)")
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -19,11 +26,16 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installStatusItem() {
-        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem.autosaveName = "CodexMuxStatusItem"
+        statusItem.isVisible = true
 
         if let button = statusItem.button {
             button.image = Self.codexMenuBarIcon
             button.imagePosition = .imageOnly
+            if button.image == nil {
+                button.title = "CM"
+            }
             button.action = #selector(togglePopover(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
