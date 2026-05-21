@@ -112,9 +112,21 @@ final class NicknameStore: ObservableObject {
     @Published private(set) var nicknames: [String: String]
 
     private let defaultsKey = "codexmux.nicknames.v1"
+    private let legacyDefaultsKey = "codexboard.nicknames.v1"
 
     init() {
-        self.nicknames = Self.loadNicknames(for: self.defaultsKey)
+        let nicknames = Self.loadNicknames(for: self.defaultsKey)
+
+        if nicknames.isEmpty {
+            let legacyNicknames = Self.loadNicknames(for: self.legacyDefaultsKey)
+            self.nicknames = legacyNicknames
+
+            if !legacyNicknames.isEmpty {
+                UserDefaults.standard.set(legacyNicknames, forKey: self.defaultsKey)
+            }
+        } else {
+            self.nicknames = nicknames
+        }
     }
 
     private static func loadNicknames(for defaultsKey: String) -> [String: String] {
