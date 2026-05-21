@@ -1,51 +1,84 @@
 import SwiftUI
 
+enum WindowHeaderPlacement {
+    case above
+    case below
+    case hidden
+}
+
 struct WindowCardView: View {
     let window: UsageWindow
     let compact: Bool
     let isLocked: Bool
+    let headerPlacement: WindowHeaderPlacement
+
+    init(
+        window: UsageWindow,
+        compact: Bool,
+        isLocked: Bool,
+        headerPlacement: WindowHeaderPlacement = .above
+    ) {
+        self.window = window
+        self.compact = compact
+        self.isLocked = isLocked
+        self.headerPlacement = headerPlacement
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 10) {
-            HStack {
-                Text(displayWindowLabel(for: window))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(window.available ? resetPaceText(for: window) : "n/a")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+            if headerPlacement == .above {
+                header
             }
 
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 999)
-                        .fill(Color.white.opacity(0.08))
-                    if !showsExpectedOverlay {
-                        expectedFill
+            bar
+
+            if headerPlacement == .below {
+                header
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Text(displayWindowLabel(for: window))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(window.available ? resetPaceText(for: window) : "n/a")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var bar: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 999)
+                    .fill(Color.white.opacity(0.08))
+                if !showsExpectedOverlay {
+                    expectedFill
+                        .frame(
+                            width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
+                        )
+                }
+                barFill
+                    .frame(width: geometry.size.width)
+                    .mask(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 999)
                             .frame(
-                                width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
+                                width: geometry.size.width * CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
                             )
                     }
-                    barFill
-                        .frame(width: geometry.size.width)
-                        .mask(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 999)
-                                .frame(
-                                    width: geometry.size.width * CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
-                                )
-                        }
-                    if showsExpectedOverlay {
-                        expectedFill
-                            .frame(
-                                width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
-                            )
-                    }
+                if showsExpectedOverlay {
+                    expectedFill
+                        .frame(
+                            width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
+                        )
                 }
             }
-            .frame(height: compact ? 8 : 14)
-            .opacity(window.available ? 1 : 0)
         }
+        .frame(height: compact ? 8 : 14)
+        .opacity(window.available ? 1 : 0)
     }
 
     private var barFill: some View {
@@ -101,21 +134,32 @@ struct AccountCardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer()
+                Text(resetPaceText(for: account.weeklyWindow))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                 Text(percentageText(for: account.weeklyWindow))
                     .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             WindowCardView(
                 window: account.weeklyWindow,
                 compact: false,
-                isLocked: isRollingWindowLocked(account.rollingWindow)
+                isLocked: isRollingWindowLocked(account.rollingWindow),
+                headerPlacement: .hidden
             )
 
             if account.rollingWindow.available {
-                WindowCardView(window: account.rollingWindow, compact: true, isLocked: false)
+                WindowCardView(
+                    window: account.rollingWindow,
+                    compact: true,
+                    isLocked: false,
+                    headerPlacement: .below
+                )
             }
         }
         .padding(20)
@@ -130,32 +174,46 @@ struct SlimAccountCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(displayName)
-                    .font(.headline.weight(.semibold))
-                    .lineLimit(1)
-
-                if let tag = compactAccountTag(for: account) {
-                    Text(tag)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text(displayName)
+                        .font(.headline.weight(.semibold))
                         .lineLimit(1)
-                }
 
-                Spacer()
+                    if let tag = compactAccountTag(for: account) {
+                        Text(tag)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(resetPaceText(for: account.weeklyWindow))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                 Text(percentageText(for: account.weeklyWindow))
                     .font(.headline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             WindowCardView(
                 window: account.weeklyWindow,
                 compact: false,
-                isLocked: isRollingWindowLocked(account.rollingWindow)
+                isLocked: isRollingWindowLocked(account.rollingWindow),
+                headerPlacement: .hidden
             )
 
             if account.rollingWindow.available {
-                WindowCardView(window: account.rollingWindow, compact: true, isLocked: false)
+                WindowCardView(
+                    window: account.rollingWindow,
+                    compact: true,
+                    isLocked: false,
+                    headerPlacement: .below
+                )
             }
         }
         .padding(14)
