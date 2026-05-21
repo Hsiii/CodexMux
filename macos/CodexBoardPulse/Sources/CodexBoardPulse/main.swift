@@ -858,6 +858,7 @@ final class NicknameStore: ObservableObject {
 struct WindowCardView: View {
     let window: UsageWindow
     let compact: Bool
+    let isLocked: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 10) {
@@ -879,14 +880,7 @@ struct WindowCardView: View {
                         .frame(
                             width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
                         )
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.4, green: 0.49, blue: 0.92),
-                            Color(red: 0.46, green: 0.29, blue: 0.64),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    barFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 999)
@@ -899,6 +893,30 @@ struct WindowCardView: View {
             .frame(height: compact ? 8 : 14)
             .opacity(window.available ? 1 : 0)
 
+        }
+    }
+
+    private var barFill: some View {
+        Group {
+            if isLocked {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.32),
+                        Color.white.opacity(0.2),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.4, green: 0.49, blue: 0.92),
+                        Color(red: 0.46, green: 0.29, blue: 0.64),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         }
     }
 }
@@ -992,10 +1010,14 @@ struct AccountCardView: View {
                 Spacer()
             }
 
-            WindowCardView(window: account.weeklyWindow, compact: false)
+            WindowCardView(
+                window: account.weeklyWindow,
+                compact: false,
+                isLocked: account.rollingWindow.available && remainingPercentage(for: account.rollingWindow) == 0
+            )
 
             if account.rollingWindow.available {
-                WindowCardView(window: account.rollingWindow, compact: true)
+                WindowCardView(window: account.rollingWindow, compact: true, isLocked: false)
             }
 
             HStack {
@@ -1075,10 +1097,14 @@ struct SlimAccountCardView: View {
                 Spacer()
             }
 
-            WindowCardView(window: account.weeklyWindow, compact: false)
+            WindowCardView(
+                window: account.weeklyWindow,
+                compact: false,
+                isLocked: account.rollingWindow.available && remainingPercentage(for: account.rollingWindow) == 0
+            )
 
             if account.rollingWindow.available {
-                WindowCardView(window: account.rollingWindow, compact: true)
+                WindowCardView(window: account.rollingWindow, compact: true, isLocked: false)
             }
 
             Text("Resets in \(formatCountdown(nextResetWindow(for: account).resetsAt))")
