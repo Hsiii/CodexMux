@@ -584,6 +584,49 @@ final class PulseCoordinator: ObservableObject {
         }
 
         var mergedAccounts = Array(existingByIdentity.values)
+        let activeIdentity = incoming.first(where: { $0.isCurrentSystemAccount == true })
+            .map(canonicalAccountIdentity(for:))
+
+        if let activeIdentity {
+            mergedAccounts = mergedAccounts.map { account in
+                let isActive = canonicalAccountIdentity(for: account) == activeIdentity
+
+                return AccountSnapshot(
+                    accountId: account.accountId,
+                    label: account.label,
+                    email: account.email,
+                    workspaceLabel: account.workspaceLabel,
+                    plan: account.plan,
+                    color: account.color,
+                    source: account.source,
+                    isCurrentSystemAccount: isActive,
+                    lastSyncedAt: account.lastSyncedAt,
+                    weeklyWindow: account.weeklyWindow,
+                    rollingWindow: account.rollingWindow,
+                    pace: account.pace,
+                    history: account.history
+                )
+            }
+        } else {
+            mergedAccounts = mergedAccounts.map { account in
+                AccountSnapshot(
+                    accountId: account.accountId,
+                    label: account.label,
+                    email: account.email,
+                    workspaceLabel: account.workspaceLabel,
+                    plan: account.plan,
+                    color: account.color,
+                    source: account.source,
+                    isCurrentSystemAccount: false,
+                    lastSyncedAt: account.lastSyncedAt,
+                    weeklyWindow: account.weeklyWindow,
+                    rollingWindow: account.rollingWindow,
+                    pace: account.pace,
+                    history: account.history
+                )
+            }
+        }
+
         mergedAccounts.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
 
         return CachePayload(
