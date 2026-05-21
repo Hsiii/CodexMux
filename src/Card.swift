@@ -144,9 +144,22 @@ struct WindowCardView: View {
 
     private var brightFill: some View {
         ZStack {
-            barFill
-            barShape
-                .fill(Color.white.opacity(0.24))
+            if isLocked {
+                barFill
+                barShape
+                    .fill(Color.white.opacity(0.28))
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.56, green: 0.66, blue: 0.98),
+                        Color(red: 0.58, green: 0.4, blue: 0.8),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                barShape
+                    .fill(Color.white.opacity(0.18))
+            }
         }
         .clipShape(barShape)
     }
