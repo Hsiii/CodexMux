@@ -13,15 +13,12 @@ struct CodexMuxApp: App {
                 }
         } label: {
             Image(nsImage: Self.codexMenuBarIcon)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 16, height: 16)
         }
         .menuBarExtraStyle(.window)
     }
 
     private static var codexMenuBarIcon: NSImage {
-        guard let url = Bundle.module.url(forResource: "codex", withExtension: "svg"),
+        guard let url = Bundle.module.url(forResource: "codex-menubar", withExtension: "png"),
               let image = NSImage(contentsOf: url)
         else {
             return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "CodexMux") ?? NSImage()
