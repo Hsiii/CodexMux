@@ -13,6 +13,14 @@
 - Ranks accounts by usage pressure and nearest reset
 - Supports nicknames to keep email addresses off-screen
 
+## Install
+
+Launch the app bundle tracked in this repo:
+
+```bash
+open CodexMux.app
+```
+
 ## Development
 
 Run directly:
