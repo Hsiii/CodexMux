@@ -1,6 +1,14 @@
 import AppKit
 import SwiftUI
 
+private struct ViewHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 private struct ScrollIndicatorHider: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -44,6 +52,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @Binding var isManagingAccounts: Bool
+    @Binding var measuredContentHeight: CGFloat
 
     var body: some View {
         ZStack {
@@ -77,8 +86,17 @@ struct SlimDashboardPanelView: View {
                     }
                 }
                 .padding(16)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(key: ViewHeightKey.self, value: geometry.size.height)
+                    }
+                }
             }
             .hidesAppKitScrollIndicators()
+            .onPreferenceChange(ViewHeightKey.self) { height in
+                self.measuredContentHeight = height
+            }
         }
         .preferredColorScheme(.dark)
         .task {
@@ -97,13 +115,19 @@ struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
     @State private var isManagingAccounts = false
+    @State private var dashboardContentHeight: CGFloat = 620
+
+    private let panelWidth: CGFloat = 440
+    private let maxPanelHeight: CGFloat = 620
+    private let managerHeight: CGFloat = 460
 
     var body: some View {
         ZStack {
             SlimDashboardPanelView(
                 coordinator: coordinator,
                 nicknameStore: nicknameStore,
-                isManagingAccounts: self.$isManagingAccounts
+                isManagingAccounts: self.$isManagingAccounts,
+                measuredContentHeight: self.$dashboardContentHeight
             )
 
             if self.isManagingAccounts {
@@ -124,8 +148,21 @@ struct PulseMenuView: View {
                 .zIndex(1)
             }
         }
-        .frame(width: 440, height: 620)
+        .frame(width: self.panelWidth, height: self.panelHeight)
         .background(.clear)
         .animation(.easeOut(duration: 0.16), value: self.isManagingAccounts)
+    }
+
+    private var panelHeight: CGFloat {
+        let fittedDashboardHeight = min(
+            max(self.dashboardContentHeight, 1),
+            self.maxPanelHeight
+        )
+
+        if self.isManagingAccounts {
+            return max(fittedDashboardHeight, self.managerHeight)
+        }
+
+        return fittedDashboardHeight
     }
 }
