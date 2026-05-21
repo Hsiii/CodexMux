@@ -238,9 +238,13 @@ struct HeaderIdentityClusterView: View {
     let ringSize: CGFloat
     let spacing: CGFloat
 
+    private var truncatedDisplayName: String {
+        String(displayName.prefix(12))
+    }
+
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing) {
-            Text(displayName)
+            Text(truncatedDisplayName)
                 .font(nameFont)
                 .lineLimit(1)
 
