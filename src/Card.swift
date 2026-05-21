@@ -163,7 +163,8 @@ struct AccountCardView: View {
                     Text(displayName)
                         .font(.title3.weight(.semibold))
                         .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .center)
+
+                    Spacer(minLength: 12)
 
                     Text(percentageText(for: account.weeklyWindow))
                         .font(.title3.weight(.semibold))
@@ -176,12 +177,14 @@ struct AccountCardView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
 
+                    Spacer(minLength: 12)
+
                     Text(resetPaceText(for: account.weeklyWindow))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -218,7 +221,8 @@ struct SlimAccountCardView: View {
                     Text(displayName)
                         .font(.headline.weight(.semibold))
                         .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .center)
+
+                    Spacer(minLength: 12)
 
                     Text(percentageText(for: account.weeklyWindow))
                         .font(.headline.weight(.semibold))
@@ -233,12 +237,14 @@ struct SlimAccountCardView: View {
                             .lineLimit(1)
                     }
 
+                    Spacer(minLength: 12)
+
                     Text(resetPaceText(for: account.weeklyWindow))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
