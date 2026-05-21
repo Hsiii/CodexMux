@@ -130,13 +130,6 @@ struct AccountCardView: View {
                     Text(displayName)
                         .font(.title3.weight(.semibold))
                         .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-
-                    Text(resetPaceText(for: account.weeklyWindow))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity, alignment: .center)
 
                     Text(percentageText(for: account.weeklyWindow))
@@ -144,9 +137,19 @@ struct AccountCardView: View {
                         .fixedSize(horizontal: true, vertical: false)
                 }
 
-                Text(tierLabel(for: account.plan))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(accountTierText(for: account))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Text(resetPaceText(for: account.weeklyWindow))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
 
             WindowCardView(
@@ -182,13 +185,6 @@ struct SlimAccountCardView: View {
                     Text(displayName)
                         .font(.headline.weight(.semibold))
                         .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-
-                    Text(resetPaceText(for: account.weeklyWindow))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity, alignment: .center)
 
                     Text(percentageText(for: account.weeklyWindow))
@@ -196,11 +192,20 @@ struct SlimAccountCardView: View {
                         .fixedSize(horizontal: true, vertical: false)
                 }
 
-                if let tag = compactAccountTag(for: account) {
-                    Text(tag)
-                        .font(.caption.weight(.semibold))
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    if let tag = compactAccountTag(for: account) {
+                        Text(tag)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Text(resetPaceText(for: account.weeklyWindow))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
 

@@ -114,20 +114,23 @@ func tierLabel(for plan: String) -> String {
     return plan
 }
 
-func compactAccountTag(for account: AccountSnapshot) -> String? {
+func accountTierText(for account: AccountSnapshot) -> String {
     let tier = tierLabel(for: account.plan)
-
-    if tier == "Free" {
-        return nil
-    }
-
     let workspace = account.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if workspace == "Ambient ~/.codex session" {
-        return tier == "Team" ? nil : tier
+        return tier
+    }
+
+    if tier == "Team" && !workspace.isEmpty {
+        return "Team \(workspace)"
     }
 
     return workspace.isEmpty ? tier : workspace
+}
+
+func compactAccountTag(for account: AccountSnapshot) -> String? {
+    accountTierText(for: account)
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {
