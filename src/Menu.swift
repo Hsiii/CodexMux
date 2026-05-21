@@ -72,10 +72,12 @@ struct SlimDashboardPanelView: View {
             .scrollBounceBehavior(.basedOnSize)
             .usesSubtleAppKitScrollIndicators()
         }
-        .background {
+        .overlay(alignment: .topLeading) {
             self.panelContent
                 .fixedSize(horizontal: false, vertical: true)
-                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .opacity(0.001)
         }
         .onPreferenceChange(ViewHeightKey.self) { height in
             self.measuredContentHeight = max(height, self.minPanelHeight)
