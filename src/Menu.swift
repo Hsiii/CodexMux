@@ -55,7 +55,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @Binding var isManagingAccounts: Bool
-    @State private var measuredContentHeight: CGFloat = 88
+    @Binding var measuredContentHeight: CGFloat
 
     private let minPanelHeight: CGFloat = 88
 
@@ -140,15 +140,18 @@ struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
     @State private var isManagingAccounts = false
+    @State private var dashboardContentHeight: CGFloat = 620
 
     private let panelWidth: CGFloat = 440
+    private let managerHeight: CGFloat = 460
 
     var body: some View {
         ZStack {
             SlimDashboardPanelView(
                 coordinator: coordinator,
                 nicknameStore: nicknameStore,
-                isManagingAccounts: self.$isManagingAccounts
+                isManagingAccounts: self.$isManagingAccounts,
+                measuredContentHeight: self.$dashboardContentHeight
             )
 
             if self.isManagingAccounts {
@@ -169,8 +172,26 @@ struct PulseMenuView: View {
                 .zIndex(1)
             }
         }
-        .frame(width: self.panelWidth)
+        .frame(width: self.panelWidth, height: self.panelHeight)
         .background(.clear)
         .animation(.easeOut(duration: 0.16), value: self.isManagingAccounts)
+    }
+
+    private var maxPanelHeight: CGFloat {
+        let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
+        return max(620, min(visibleScreenHeight - 120, 820))
+    }
+
+    private var panelHeight: CGFloat {
+        let fittedDashboardHeight = min(
+            max(self.dashboardContentHeight, 88),
+            self.maxPanelHeight
+        )
+
+        if self.isManagingAccounts {
+            return max(fittedDashboardHeight, self.managerHeight)
+        }
+
+        return fittedDashboardHeight
     }
 }
