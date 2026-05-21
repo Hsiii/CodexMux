@@ -178,48 +178,157 @@ struct SessionUsageRingView: View {
     }
 }
 
+struct WeeklyUsageSurfaceView<Content: View>: View {
+    let window: UsageWindow
+    let isLocked: Bool
+    let cornerRadius: CGFloat
+    let contentPadding: CGFloat
+    @ViewBuilder let content: Content
+
+    init(
+        window: UsageWindow,
+        isLocked: Bool,
+        cornerRadius: CGFloat,
+        contentPadding: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.window = window
+        self.isLocked = isLocked
+        self.cornerRadius = cornerRadius
+        self.contentPadding = contentPadding
+        self.content = content()
+    }
+
+    private var currentFraction: CGFloat {
+        CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
+    }
+
+    private var expectedFraction: CGFloat {
+        CGFloat(expectedRemainingPercentage(for: window) / 100)
+    }
+
+    private var showsExpectedOverlay: Bool {
+        expectedRemainingPercentage(for: window) < Double(displayRemainingPercentage(for: window))
+    }
+
+    private var surfaceShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
+    private var tintedFill: some View {
+        Group {
+            if isLocked {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.12),
+                        Color.white.opacity(0.07),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.4, green: 0.49, blue: 0.92).opacity(0.2),
+                        Color(red: 0.46, green: 0.29, blue: 0.64).opacity(0.14),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+    }
+
+    private var expectedTint: some View {
+        surfaceShape
+            .fill(Color.white.opacity(0.06))
+    }
+
+    var body: some View {
+        content
+            .padding(contentPadding)
+            .background {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        surfaceShape
+                            .fill(Color.white.opacity(0.04))
+
+                        if window.available {
+                            if showsExpectedOverlay {
+                                tintedFill
+                                    .frame(width: geometry.size.width)
+                                    .mask(alignment: .leading) {
+                                        surfaceShape.frame(width: geometry.size.width * currentFraction)
+                                    }
+
+                                expectedTint
+                                    .frame(width: geometry.size.width)
+                                    .mask(alignment: .leading) {
+                                        surfaceShape.frame(width: geometry.size.width * expectedFraction)
+                                    }
+                            } else {
+                                expectedTint
+                                    .frame(width: geometry.size.width)
+                                    .mask(alignment: .leading) {
+                                        surfaceShape.frame(width: geometry.size.width * expectedFraction)
+                                    }
+
+                                tintedFill
+                                    .frame(width: geometry.size.width)
+                                    .mask(alignment: .leading) {
+                                        surfaceShape.frame(width: geometry.size.width * currentFraction)
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
+            .clipShape(surfaceShape)
+    }
+}
+
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(displayName)
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
+            WeeklyUsageSurfaceView(
+                window: account.weeklyWindow,
+                isLocked: isRollingWindowLocked(account.rollingWindow),
+                cornerRadius: 20,
+                contentPadding: 20
+            ) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(displayName)
+                            .font(.title3.weight(.semibold))
+                            .lineLimit(1)
 
-                    Spacer(minLength: 12)
+                        Spacer(minLength: 12)
 
-                    Text(percentageText(for: account.weeklyWindow))
-                        .font(.title3.weight(.semibold))
-                        .fixedSize(horizontal: true, vertical: false)
-                }
+                        Text(percentageText(for: account.weeklyWindow))
+                            .font(.title3.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
 
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(accountTierText(for: account))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(accountTierText(for: account))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
 
-                    Spacer(minLength: 12)
+                        Spacer(minLength: 12)
 
-                    Text(resetPaceText(for: account.weeklyWindow))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text(resetPaceText(for: account.weeklyWindow))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
-
-            WindowCardView(
-                window: account.weeklyWindow,
-                compact: false,
-                isLocked: isRollingWindowLocked(account.rollingWindow),
-                headerPlacement: .hidden
-            )
 
             if account.rollingWindow.available {
                 HStack(spacing: 8) {
@@ -245,44 +354,44 @@ struct SlimAccountCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(displayName)
-                        .font(.headline.weight(.semibold))
-                        .lineLimit(1)
+            WeeklyUsageSurfaceView(
+                window: account.weeklyWindow,
+                isLocked: isRollingWindowLocked(account.rollingWindow),
+                cornerRadius: 16,
+                contentPadding: 14
+            ) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(displayName)
+                            .font(.headline.weight(.semibold))
+                            .lineLimit(1)
 
-                    Spacer(minLength: 12)
+                        Spacer(minLength: 12)
 
-                    Text(percentageText(for: account.weeklyWindow))
-                        .font(.headline.weight(.semibold))
-                        .fixedSize(horizontal: true, vertical: false)
-                }
+                        Text(percentageText(for: account.weeklyWindow))
+                            .font(.headline.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
 
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    if let tag = compactAccountTag(for: account) {
-                        Text(tag)
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        if let tag = compactAccountTag(for: account) {
+                            Text(tag)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer(minLength: 12)
+
+                        Text(resetPaceText(for: account.weeklyWindow))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-
-                    Spacer(minLength: 12)
-
-                    Text(resetPaceText(for: account.weeklyWindow))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            WindowCardView(
-                window: account.weeklyWindow,
-                compact: false,
-                isLocked: isRollingWindowLocked(account.rollingWindow),
-                headerPlacement: .hidden
-            )
 
             if account.rollingWindow.available {
                 HStack(spacing: 8) {
