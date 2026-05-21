@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/apple"
-TRACKED_BUNDLE_DIR="$ROOT_DIR/bundle"
+TRACKED_BUNDLE_DIR="$ROOT_DIR"
 APP_DIR="$BUILD_DIR/CodexMux.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -94,7 +94,6 @@ cat > "$PLIST_PATH" <<EOF
 EOF
 
 if [[ "$SYNC_TRACKED_BUNDLE" == "1" ]]; then
-    mkdir -p "$TRACKED_BUNDLE_DIR"
     rm -rf "$TRACKED_BUNDLE_DIR/CodexMux.app"
     cp -R "$APP_DIR" "$TRACKED_BUNDLE_DIR/CodexMux.app"
 fi

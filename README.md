@@ -13,23 +13,23 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 
 ## Install
 
-Run from source:
+Open the bundled app in the repo root:
 
 ```bash
-swift run CodexMux
+open CodexMux.app
 ```
 
-Build the app bundle:
+Or rebuild it locally:
 
 ```bash
 ./scripts/build-app.sh
 open .build/apple/CodexMux.app
 ```
 
-Install with Homebrew once a release is published:
+To refresh the tracked root bundle after rebuilding:
 
 ```bash
-brew install --cask YOUR_GITHUB_OWNER/tap/codexmux
+CODEXMUX_SYNC_TRACKED_BUNDLE=1 ./scripts/build-app.sh
 ```
 
 ## Release
@@ -39,7 +39,7 @@ This repo follows the same split release structure as
 
 - GitHub Releases host the macOS app archive.
 - A separate Homebrew tap hosts `Casks/codexmux.rb`.
-- The cask targets `macOS Sonoma` or newer.
+- The cask targets `macOS Sonoma` or newer, but unsigned Homebrew installs may require manual quarantine removal.
 
 Build release artifacts for `0.0.0`:
 
@@ -69,7 +69,7 @@ Bootstrap a custom tap repo:
 
 The release workflow in `.github/workflows/release.yml`:
 
-- `.github/workflows/release.yml` packages `CodexMux.app` on `macos-14`
+- `.github/workflows/release.yml` packages `CodexMux.app` on `macos-15`
 - On a published release, uploads `CodexMux-<version>.zip` and `codexmux.rb`
 - If `HOMEBREW_TAP_REPOSITORY` and `HOMEBREW_TAP_TOKEN` are set, also updates the tap automatically
 
