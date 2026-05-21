@@ -9,29 +9,32 @@ private struct ViewHeightKey: PreferenceKey {
     }
 }
 
-private struct ScrollIndicatorHider: NSViewRepresentable {
+private struct ScrollIndicatorConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            hideScrollIndicators(from: view)
+            configureScrollIndicators(from: view)
         }
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
         DispatchQueue.main.async {
-            hideScrollIndicators(from: view)
+            configureScrollIndicators(from: view)
         }
     }
 
-    private func hideScrollIndicators(from view: NSView) {
+    private func configureScrollIndicators(from view: NSView) {
         var currentView: NSView? = view
 
         while let view = currentView {
             if let scrollView = view as? NSScrollView {
-                scrollView.hasVerticalScroller = false
+                scrollView.hasVerticalScroller = true
                 scrollView.hasHorizontalScroller = false
                 scrollView.autohidesScrollers = true
+                scrollView.scrollerStyle = .overlay
+                scrollView.verticalScroller?.controlSize = .small
+                scrollView.verticalScroller?.alphaValue = 0.35
                 return
             }
 
@@ -41,10 +44,10 @@ private struct ScrollIndicatorHider: NSViewRepresentable {
 }
 
 extension View {
-    func hidesAppKitScrollIndicators() -> some View {
+    func usesSubtleAppKitScrollIndicators() -> some View {
         self
-            .scrollIndicators(.hidden)
-            .background(ScrollIndicatorHider())
+            .scrollIndicators(.automatic)
+            .background(ScrollIndicatorConfigurator())
     }
 }
 
@@ -94,7 +97,7 @@ struct SlimDashboardPanelView: View {
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
-            .hidesAppKitScrollIndicators()
+            .usesSubtleAppKitScrollIndicators()
             .onPreferenceChange(ViewHeightKey.self) { height in
                 self.measuredContentHeight = height
             }

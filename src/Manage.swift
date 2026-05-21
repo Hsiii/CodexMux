@@ -105,7 +105,7 @@ struct AccountManagerOverlayView: View {
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
-            .hidesAppKitScrollIndicators()
+            .usesSubtleAppKitScrollIndicators()
 
             HStack {
                 Spacer()
