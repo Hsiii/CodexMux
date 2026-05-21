@@ -154,6 +154,7 @@ struct WindowCardView: View {
 
 struct RollingUsageInlineView: View {
     let window: UsageWindow
+    let size: CGFloat
 
     private var currentFraction: CGFloat {
         CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
@@ -167,38 +168,16 @@ struct RollingUsageInlineView: View {
         expectedRemainingPercentage(for: window) < Double(displayRemainingPercentage(for: window))
     }
 
-    private var ringStyle: AnyShapeStyle {
-        if isRollingWindowLocked(window) {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.32),
-                        Color.white.opacity(0.2),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-        }
-
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.4, green: 0.49, blue: 0.92),
-                    Color(red: 0.46, green: 0.29, blue: 0.64),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+    private var lineWidth: CGFloat {
+        max(2, round(size * 0.22))
     }
 
     private var expectedRing: some View {
         Circle()
             .trim(from: 0, to: expectedFraction)
             .stroke(
-                Color.white.opacity(0.24),
-                style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                Color.white.opacity(0.28),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
     }
@@ -207,8 +186,8 @@ struct RollingUsageInlineView: View {
         Circle()
             .trim(from: 0, to: currentFraction)
             .stroke(
-                ringStyle,
-                style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                Color.white.opacity(isRollingWindowLocked(window) ? 0.66 : 0.92),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
     }
@@ -217,8 +196,8 @@ struct RollingUsageInlineView: View {
         Circle()
             .trim(from: 0, to: currentFraction)
             .stroke(
-                Color.white.opacity(0.24),
-                style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                Color(red: 0.72, green: 0.72, blue: 0.76),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
             .overlay {
@@ -234,7 +213,7 @@ struct RollingUsageInlineView: View {
 
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 3)
+                    .stroke(Color.white.opacity(0.08), lineWidth: lineWidth)
 
                 expectedRing
 
@@ -244,7 +223,7 @@ struct RollingUsageInlineView: View {
                     currentRing
                 }
             }
-            .frame(width: 12, height: 12)
+            .frame(width: size, height: size)
         }
         .opacity(window.available ? 1 : 0)
         .accessibilityElement(children: .ignore)
@@ -386,21 +365,21 @@ struct AccountCardView: View {
             ) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(displayName)
-                            .font(.title3.weight(.semibold))
-                            .lineLimit(1)
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(displayName)
+                                .font(.title3.weight(.semibold))
+                                .lineLimit(1)
+
+                            if account.rollingWindow.available {
+                                RollingUsageInlineView(window: account.rollingWindow, size: 14)
+                            }
+                        }
 
                         Spacer(minLength: 12)
 
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            if account.rollingWindow.available {
-                                RollingUsageInlineView(window: account.rollingWindow)
-                            }
-
-                            Text(percentageText(for: account.weeklyWindow))
-                                .font(.title3.weight(.semibold))
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
+                        Text(percentageText(for: account.weeklyWindow))
+                            .font(.title3.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -441,21 +420,21 @@ struct SlimAccountCardView: View {
             ) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(displayName)
-                            .font(.headline.weight(.semibold))
-                            .lineLimit(1)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(displayName)
+                                .font(.headline.weight(.semibold))
+                                .lineLimit(1)
+
+                            if account.rollingWindow.available {
+                                RollingUsageInlineView(window: account.rollingWindow, size: 12)
+                            }
+                        }
 
                         Spacer(minLength: 12)
 
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            if account.rollingWindow.available {
-                                RollingUsageInlineView(window: account.rollingWindow)
-                            }
-
-                            Text(percentageText(for: account.weeklyWindow))
-                                .font(.headline.weight(.semibold))
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
+                        Text(percentageText(for: account.weeklyWindow))
+                            .font(.headline.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
