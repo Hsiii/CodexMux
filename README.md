@@ -1,8 +1,10 @@
-# CodexMux
+<p align="center">
+  <img src="assets/app_icon.png" alt="CodexMux logo" width="160" />
+</p>
 
-<img src="assets/demo.png" alt="CodexMux demo" width="50%"/>
+<h1 align="center">CodexMux</h1>
 
-A macOS menu bar app to track and sort your Codex account limits at a glance.
+<p align="center">A macOS menu bar app to track and sort your Codex account limits at a glance.</p>
 
 ## Features
 
@@ -26,8 +28,7 @@ Build the native macOS app bundle:
 open CodexMux.app
 ```
 
-`scripts/build-app.sh` now generates a native Xcode project from `project.yml`,
-builds the app with `xcodebuild`, and refreshes the repo-root `CodexMux.app`.
+`scripts/build-app.sh` generates a native macOS app bundle, refreshes the repo-root `CodexMux.app`, and uses `assets/CodexMux.icns` as the final app icon. If that `.icns` file is missing, it is regenerated from `assets/app_icon.png`.
 
 ## Packaging
 
