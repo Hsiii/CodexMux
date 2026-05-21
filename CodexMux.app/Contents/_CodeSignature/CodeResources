@@ -8,18 +8,6 @@
 		<data>
 		+JIcsx17cYL9+9k0ArS6QIy4TE0=
 		</data>
-		<key>Resources/CodexMux_CodexMux.bundle/assets/CodexMux.icns</key>
-		<data>
-		+JIcsx17cYL9+9k0ArS6QIy4TE0=
-		</data>
-		<key>Resources/CodexMux_CodexMux.bundle/assets/demo.png</key>
-		<data>
-		9JaTIPcXU6lWD0pjqHdj7OWsyGo=
-		</data>
-		<key>Resources/CodexMux_CodexMux.bundle/assets/icon.png</key>
-		<data>
-		aMsCalUpcgjjNo6hkm0zH6oMcX8=
-		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -28,27 +16,6 @@
 			<key>hash2</key>
 			<data>
 			wohPo0bwPcUgwUFA8K5PQy1IqPj3DeUK7+WMqv6F/Ag=
-			</data>
-		</dict>
-		<key>Resources/CodexMux_CodexMux.bundle/assets/CodexMux.icns</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			wohPo0bwPcUgwUFA8K5PQy1IqPj3DeUK7+WMqv6F/Ag=
-			</data>
-		</dict>
-		<key>Resources/CodexMux_CodexMux.bundle/assets/demo.png</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			/mNkRZD4+Y3+21xSKd8LsEEdqtKsLwPcOpmL/W1ciMU=
-			</data>
-		</dict>
-		<key>Resources/CodexMux_CodexMux.bundle/assets/icon.png</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			PIPRwjFTNB6TaiHSJ6a+ybIHZh42BwYkMZdUPhqn0As=
 			</data>
 		</dict>
 	</dict>

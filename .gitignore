@@ -1,5 +1,4 @@
 .build
 .DS_Store
-CodexMux.app
 CodexMux.xcodeproj
 run.log
