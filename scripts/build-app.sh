@@ -9,6 +9,7 @@ APP_DIR="$BUILD_DIR/CodexMux.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+APP_ICON_PATH="$ROOT_DIR/assets/CodexMux.icns"
 BIN_DIR="$(swift build --package-path "$ROOT_DIR" --show-bin-path)"
 EXECUTABLE_PATH="$BIN_DIR/CodexMux"
 RESOURCE_BUNDLE_PATH="$BIN_DIR/CodexMux_CodexMux.bundle"
@@ -27,6 +28,9 @@ mkdir -p "$RESOURCES_DIR"
 
 cp "$EXECUTABLE_PATH" "$MACOS_DIR/CodexMux"
 cp -R "$RESOURCE_BUNDLE_PATH" "$RESOURCES_DIR/CodexMux_CodexMux.bundle"
+if [[ -f "$APP_ICON_PATH" ]]; then
+    cp "$APP_ICON_PATH" "$RESOURCES_DIR/CodexMux.icns"
+fi
 
 cat > "$PLIST_PATH" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -41,6 +45,8 @@ cat > "$PLIST_PATH" <<EOF
     <string>dev.hsi.codexmux</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
+    <key>CFBundleIconFile</key>
+    <string>CodexMux</string>
     <key>CFBundleName</key>
     <string>CodexMux</string>
     <key>CFBundlePackageType</key>
