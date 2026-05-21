@@ -379,7 +379,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             .overlay {
                 if isActive {
                     surfaceShape
-                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.7), lineWidth: 2)
                 }
             }
     }
