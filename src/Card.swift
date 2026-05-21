@@ -55,25 +55,27 @@ struct WindowCardView: View {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 999)
                     .fill(Color.white.opacity(0.08))
-                if !showsExpectedOverlay {
-                    expectedFill
-                        .frame(
-                            width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
-                        )
-                }
-                barFill
-                    .frame(width: geometry.size.width)
-                    .mask(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 999)
-                            .frame(
-                                width: geometry.size.width * CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
-                            )
-                    }
+
                 if showsExpectedOverlay {
+                    brightFill
+                        .frame(width: geometry.size.width * currentFraction)
+
+                    barFill
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 999)
+                                .frame(width: geometry.size.width * expectedFraction)
+                        }
+                } else {
                     expectedFill
-                        .frame(
-                            width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
-                        )
+                        .frame(width: geometry.size.width * expectedFraction)
+
+                    barFill
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 999)
+                                .frame(width: geometry.size.width * currentFraction)
+                        }
                 }
             }
         }
@@ -109,6 +111,14 @@ struct WindowCardView: View {
         expectedRemainingPercentage(for: window) < Double(displayRemainingPercentage(for: window))
     }
 
+    private var currentFraction: CGFloat {
+        CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
+    }
+
+    private var expectedFraction: CGFloat {
+        CGFloat(expectedRemainingPercentage(for: window) / 100)
+    }
+
     private var expectedBarColor: Color {
         Color.white.opacity(0.24)
     }
@@ -116,6 +126,14 @@ struct WindowCardView: View {
     private var expectedFill: some View {
         RoundedRectangle(cornerRadius: 999)
             .fill(expectedBarColor)
+    }
+
+    private var brightFill: some View {
+        ZStack {
+            barFill
+            RoundedRectangle(cornerRadius: 999)
+                .fill(Color.white.opacity(0.24))
+        }
     }
 }
 
