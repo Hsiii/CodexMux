@@ -46,6 +46,20 @@ To offer `brew install --cask YOUR_TAP/codexmux`, publish that archive in a
 tagged GitHub release and copy the generated cask into your tap repository
 under `Casks/codexmux.rb`.
 
+Bootstrap a standalone tap repo scaffold:
+
+```bash
+./scripts/bootstrap-homebrew-tap.sh \
+  --version 1.0.0 \
+  --source-repo YOUR_GITHUB_OWNER/CodexMux \
+  --tap-repo YOUR_GITHUB_OWNER/homebrew-tap
+```
+
+By default this creates `../homebrew-tap` with:
+
+- `README.md`
+- `Casks/codexmux.rb`
+
 ## Release Structure
 
 This repo now follows the same high-level release split as

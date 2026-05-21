@@ -46,21 +46,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t package_output < <(
-            ./scripts/package-homebrew.sh \
-              --version "${{ steps.meta.outputs.version }}" \
-              --repo "${RELEASE_REPOSITORY}"
-          )
+          output_file="$(mktemp)"
+          trap 'rm -f "$output_file"' EXIT
 
-          printf '%s\n' "${package_output[@]}"
+          ./scripts/package-homebrew.sh \
+            --version "${{ steps.meta.outputs.version }}" \
+            --repo "${RELEASE_REPOSITORY}" | tee "$output_file"
 
-          for line in "${package_output[@]}"; do
+          while IFS= read -r line; do
             case "$line" in
               archive=*|sha256=*|cask=*)
                 echo "$line" >> "$GITHUB_OUTPUT"
                 ;;
             esac
-          done
+          done < "$output_file"
 
       - name: Upload release assets
         if: github.event_name == 'release'
