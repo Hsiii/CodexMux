@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 enum AppResources {
     private static let bundleName = "CodexMux_CodexMux.bundle"
@@ -28,6 +29,29 @@ enum AppResources {
             return url
         }
 
+        if subdirectory != nil,
+           let url = Bundle.main.url(forResource: name, withExtension: ext)
+        {
+            return url
+        }
+
         return self.moduleBundle?.url(forResource: name, withExtension: ext, subdirectory: subdirectory)
+    }
+
+    static func image(named name: String, withExtension ext: String? = nil, subdirectory: String? = nil) -> NSImage? {
+        if let url = self.url(forResource: name, withExtension: ext, subdirectory: subdirectory),
+           let image = NSImage(contentsOf: url)
+        {
+            return image
+        }
+
+        let resourceName = ext.map { "\(name).\($0)" } ?? name
+
+        if let image = Bundle.main.image(forResource: resourceName)
+        {
+            return image
+        }
+
+        return nil
     }
 }

@@ -62,9 +62,11 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static var codexMenuBarIcon: NSImage {
-        guard let url = AppResources.url(forResource: "icon", withExtension: "png", subdirectory: "assets"),
-              let image = NSImage(contentsOf: url)
-        else {
+        let image = AppResources.image(named: "icon", withExtension: "png", subdirectory: "assets")
+            ?? AppResources.image(named: "CodexMux", withExtension: "icns")
+            ?? NSApplication.shared.applicationIconImage
+
+        guard let image else {
             return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "CodexMux") ?? NSImage()
         }
 
