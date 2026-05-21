@@ -267,6 +267,8 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     let contentPadding: CGFloat
     @ViewBuilder let content: Content
     @State private var shimmerTravel: CGFloat = 1.15
+    private let shimmerWidthFraction: CGFloat = 0.62
+    private let shimmerEndTravel: CGFloat = -0.42
 
     init(
         window: UsageWindow,
@@ -351,6 +353,10 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         )
     }
 
+    private var shimmerStartTravel: CGFloat {
+        max(currentFraction - (shimmerWidthFraction * 0.5), 0)
+    }
+
     var body: some View {
         content
             .padding(contentPadding)
@@ -390,7 +396,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
                         if window.available && isActive && currentFraction > 0 {
                             shimmerBand
-                                .frame(width: geometry.size.width * 0.62)
+                                .frame(width: geometry.size.width * shimmerWidthFraction)
                                 .offset(x: geometry.size.width * shimmerTravel)
                                 .blendMode(.screen)
                                 .opacity(1)
@@ -405,19 +411,19 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             .clipShape(surfaceShape)
             .onAppear {
                 guard isActive else { return }
-                shimmerTravel = 1.15
+                shimmerTravel = shimmerStartTravel
                 withAnimation(.linear(duration: 4.8).repeatForever(autoreverses: false)) {
-                    shimmerTravel = -0.42
+                    shimmerTravel = shimmerEndTravel
                 }
             }
             .onChange(of: isActive) { _, active in
                 if active {
-                    shimmerTravel = 1.15
+                    shimmerTravel = shimmerStartTravel
                     withAnimation(.linear(duration: 4.8).repeatForever(autoreverses: false)) {
-                        shimmerTravel = -0.42
+                        shimmerTravel = shimmerEndTravel
                     }
                 } else {
-                    shimmerTravel = 1.15
+                    shimmerTravel = shimmerStartTravel
                 }
             }
     }
