@@ -1,36 +1,22 @@
 import AppKit
 import SwiftUI
 
-@MainActor
-final class TerminationController {
-    static let shared = TerminationController()
-
-    private(set) var allowTermination = false
-
-    func requestQuit() {
-        self.allowTermination = true
-        NSApp.terminate(nil)
-    }
-}
-
-final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        TerminationController.shared.allowTermination ? .terminateNow : .terminateCancel
-    }
-}
-
 @main
 struct CodexMuxApp: App {
     @StateObject private var coordinator = PulseCoordinator()
-    @NSApplicationDelegateAdaptor(CodexMuxAppDelegate.self) private var appDelegate
+    @State private var isMenuBarInserted = true
 
     init() {
+        // Reset the system-managed visibility flag so the menu bar extra can recover
+        // after a prior hidden-state launch for this bundle identifier.
+        UserDefaults.standard.set(true, forKey: "NSStatusItem VisibleCC Item-0")
+
         // Keep the menu bar process resident even when it has no regular windows.
         ProcessInfo.processInfo.disableAutomaticTermination("CodexMux menu bar app")
     }
 
     var body: some Scene {
-        MenuBarExtra {
+        MenuBarExtra(isInserted: self.$isMenuBarInserted) {
             PulseMenuView(coordinator: coordinator)
                 .task {
                     coordinator.start()

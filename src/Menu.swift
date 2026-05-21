@@ -116,7 +116,7 @@ struct SlimDashboardPanelView: View {
                 Spacer()
 
                 Button("Quit") {
-                    TerminationController.shared.requestQuit()
+                    NSApp.terminate(nil)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
