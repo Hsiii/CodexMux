@@ -117,6 +117,7 @@ tell application "Finder"
         set current view of containerWindow to icon view
         set toolbar visible of containerWindow to false
         set statusbar visible of containerWindow to false
+        set pathbar visible of containerWindow to false
         set bounds of containerWindow to {120, 120, 700, 500}
 
         set viewOptions to the icon view options of containerWindow
@@ -125,8 +126,8 @@ tell application "Finder"
         set text size of viewOptions to 14
         set background color of viewOptions to {59000, 60200, 62000}
 
-        set position of item "${APP_NAME}.app" to {150, 190}
-        set position of item "Applications" to {410, 190}
+        set position of item "${APP_NAME}.app" to {150, 150}
+        set position of item "Applications" to {410, 150}
 
         close
         open
