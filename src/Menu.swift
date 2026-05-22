@@ -133,11 +133,20 @@ struct SlimDashboardPanelView: View {
 
                     Divider()
 
-                    Toggle("Open at Login", isOn: Binding(
-                        get: { launchAtLoginStore.opensAtLogin },
-                        set: { launchAtLoginStore.setEnabled($0) }
-                    ))
-                    .controlSize(.small)
+                    Button {
+                        launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text("Open at Login")
+
+                            Spacer(minLength: 16)
+
+                            if launchAtLoginStore.opensAtLogin {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 15, weight: .semibold))
