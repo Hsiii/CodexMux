@@ -8,6 +8,26 @@
 		<data>
 		+cn0T3CB7cXq6xyv48hwYw2so5Q=
 		</data>
+		<key>Resources/assets/CodexMux.icns</key>
+		<data>
+		+cn0T3CB7cXq6xyv48hwYw2so5Q=
+		</data>
+		<key>Resources/assets/app-icon.png</key>
+		<data>
+		7VugIb8bhTIbYPIy2BdkJAxILr0=
+		</data>
+		<key>Resources/assets/demo.png</key>
+		<data>
+		9JaTIPcXU6lWD0pjqHdj7OWsyGo=
+		</data>
+		<key>Resources/assets/icon.png</key>
+		<data>
+		aMsCalUpcgjjNo6hkm0zH6oMcX8=
+		</data>
+		<key>Resources/assets/logo.png</key>
+		<data>
+		7koJPXVSnxIJI3oQDpQhd1OJcos=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -16,6 +36,41 @@
 			<key>hash2</key>
 			<data>
 			6Vw4pV+LoUa28s753NaDadihxMfqsNrz9irTC4jqUXc=
+			</data>
+		</dict>
+		<key>Resources/assets/CodexMux.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			6Vw4pV+LoUa28s753NaDadihxMfqsNrz9irTC4jqUXc=
+			</data>
+		</dict>
+		<key>Resources/assets/app-icon.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			X0m+8VNNL0IfuIKg4lxphsb878TaJ3FBtS2BS0fsdZw=
+			</data>
+		</dict>
+		<key>Resources/assets/demo.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			/mNkRZD4+Y3+21xSKd8LsEEdqtKsLwPcOpmL/W1ciMU=
+			</data>
+		</dict>
+		<key>Resources/assets/icon.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			PIPRwjFTNB6TaiHSJ6a+ybIHZh42BwYkMZdUPhqn0As=
+			</data>
+		</dict>
+		<key>Resources/assets/logo.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Iy8+k1Lu1IRiHd6/26hvCqVWJY8WLOcj5z7t1TpN/AA=
 			</data>
 		</dict>
 	</dict>

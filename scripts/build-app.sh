@@ -12,6 +12,8 @@ ICONSET_DIR="$ROOT_DIR/.build/CodexMux.iconset"
 ICON_SOURCE_PATH="$ROOT_DIR/assets/app-icon.png"
 APP_ICON_PATH="$ROOT_DIR/assets/CodexMux.icns"
 GENERATED_ICON_PATH="$ROOT_DIR/.build/CodexMux.icns"
+ASSETS_SOURCE_DIR="$ROOT_DIR/assets"
+APP_ASSETS_DIR="$APP_DIR/Contents/Resources/assets"
 
 if ! command -v sips >/dev/null 2>&1; then
     echo "error: sips is required to render icon assets from $ICON_SOURCE_PATH" >&2
@@ -60,6 +62,9 @@ rm -rf "$APP_DIR"
 cp -R "$XCODE_APP_DIR" "$APP_DIR"
 if [[ -f "$APP_ICON_PATH" ]]; then
   mkdir -p "$APP_DIR/Contents/Resources"
+  rm -rf "$APP_ASSETS_DIR"
+  cp -R "$ASSETS_SOURCE_DIR" "$APP_ASSETS_DIR"
+  rm -f "$APP_ASSETS_DIR/.DS_Store"
   cp "$APP_ICON_PATH" "$APP_DIR/Contents/Resources/CodexMux.icns"
   /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" "$APP_DIR/Contents/Info.plist" >/dev/null 2>&1 || true
   /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string CodexMux" "$APP_DIR/Contents/Info.plist"
