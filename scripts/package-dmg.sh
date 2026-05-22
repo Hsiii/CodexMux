@@ -79,13 +79,12 @@ if [[ -z "$VOLUME_NAME" ]]; then
     VOLUME_NAME="$dmg_name"
 fi
 
-MOUNT_DIR="/Volumes/${VOLUME_NAME}"
-
 dmg_path="$DIST_DIR/${dmg_name}.dmg"
-root_dmg_path="$ROOT_DMG_DIR/${dmg_name}.dmg"
+root_dmg_path="$ROOT_DMG_DIR/${APP_NAME}.dmg"
 temp_dmg_path="$BUILD_DIR/${dmg_name}-temp.dmg"
+attach_plist_path="$BUILD_DIR/${dmg_name}-attach.plist"
 
-rm -f "$dmg_path" "$root_dmg_path" "$temp_dmg_path"
+rm -f "$dmg_path" "$root_dmg_path" "$temp_dmg_path" "$attach_plist_path"
 
 hdiutil create \
     -volname "$VOLUME_NAME" \
@@ -98,11 +97,19 @@ hdiutil attach \
     "$temp_dmg_path" \
     -readwrite \
     -noverify \
-    -noautoopen >/dev/null
+    -noautoopen \
+    -plist > "$attach_plist_path"
+
+MOUNT_DIR="$(sed -n '/<key>mount-point<\/key>/{n;s/.*<string>\(.*\)<\/string>.*/\1/p;q;}' "$attach_plist_path")"
+
+if [[ -z "$MOUNT_DIR" ]]; then
+    echo "error: unable to determine mounted DMG path" >&2
+    exit 1
+fi
 
 cleanup_mount() {
     if [[ -d "$MOUNT_DIR" ]]; then
-        hdiutil detach "$MOUNT_DIR" -quiet >/dev/null 2>&1 || true
+        hdiutil detach "$MOUNT_DIR" -quiet >/dev/null 2>&1 || hdiutil detach "$MOUNT_DIR" -force -quiet >/dev/null 2>&1 || true
     fi
 }
 
@@ -133,13 +140,15 @@ tell application "Finder"
         close
         open
         update without registering applications
+        delay 1
+        close
     end tell
 end tell
 EOF
 
 sleep 1
 sync
-hdiutil detach "$MOUNT_DIR" -quiet >/dev/null
+hdiutil detach "$MOUNT_DIR" -quiet >/dev/null || hdiutil detach "$MOUNT_DIR" -force -quiet >/dev/null
 trap - EXIT
 
 hdiutil convert "$temp_dmg_path" \
@@ -148,6 +157,7 @@ hdiutil convert "$temp_dmg_path" \
     -o "$dmg_path" >/dev/null
 
 rm -f "$temp_dmg_path"
+rm -f "$attach_plist_path"
 cp -R "$dmg_path" "$root_dmg_path"
 
 printf '%s\n' "$root_dmg_path"
