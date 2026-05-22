@@ -253,23 +253,22 @@ struct HeaderIdentityClusterView: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing) {
-            HStack(alignment: .firstTextBaseline, spacing: spacing) {
-                Text(truncatedDisplayName)
-                    .font(nameFont)
-                    .lineLimit(1)
+            Text(truncatedDisplayName)
+                .font(nameFont)
+                .lineLimit(1)
 
-                if rollingWindow.available {
-                    RollingUsageInlineView(
-                        window: rollingWindow,
-                        size: ringSize
-                    )
+            if isRollingWindowLocked(rollingWindow) {
+                HStack(alignment: .firstTextBaseline, spacing: spacing) {
+                    Image(systemName: "lock.fill")
+                        .font(nameFont.weight(.semibold))
 
-                    Text(sessionBadgeText(for: rollingWindow))
+                    Text(formatCountdown(rollingWindow.resetsAt))
                         .font(nameFont)
-                        .foregroundStyle(Color.white.opacity(0.5))
                         .lineLimit(1)
                 }
+                .foregroundStyle(Color.white.opacity(0.5))
             }
+
             Spacer(minLength: 8)
         }
         .frame(width: clusterWidth, alignment: .leading)
