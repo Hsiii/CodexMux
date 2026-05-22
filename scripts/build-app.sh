@@ -9,7 +9,7 @@ XCODE_APP_DIR="$DERIVED_DATA_DIR/Build/Products/Debug/CodexMux.app"
 TRACKED_BUNDLE_DIR="$ROOT_DIR"
 APP_DIR="$BUILD_DIR/CodexMux.app"
 ICONSET_DIR="$ROOT_DIR/.build/CodexMux.iconset"
-ICON_SOURCE_PATH="$ROOT_DIR/assets/logo.png"
+ICON_SOURCE_PATH="$ROOT_DIR/assets/app-icon.png"
 APP_ICON_PATH="$ROOT_DIR/assets/CodexMux.icns"
 GENERATED_ICON_PATH="$ROOT_DIR/.build/CodexMux.icns"
 
