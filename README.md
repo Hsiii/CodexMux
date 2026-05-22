@@ -8,33 +8,16 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 <img src="assets/demo.png" alt="CodexMux demo" height="720" />
 </div>
 
-## Why
-Codex usage is easy to lose track of when you work across personal and team
-accounts, multiple workspaces, or different reset windows. CodexMux turns that
-into one local control panel so you do not have to keep checking each account
-manually.
+## Why CodexMux
 
-## Features
-
-- Reads Codex sessions from `~/.codex/auth.json`
-- Automatically tracks and caches account usage and reset times
-- Arranges accounts by usage pressure and nearest reset
-- Supports nicknames to keep email addresses off-screen
-- Lets you enable "Open at Login" from the app on macOS
+- **Unified Tracking:** Monitor usage across multiple Codex accounts and workspaces in one place.
+- **Zero-Touch Sync:** Automatically discovers local Codex sessions and keeps usage data in sync without manual login or credential input.
+- **Intelligent Prioritization:** Accounts are ranked by current usage relative to their expected pacing, lets you identify which account has the most available headroom at a glance.
+- **Privacy First:** Built natively in Swift with local-only storage and nickname support to keep account details private and unobtrusive.
 
 ## Install
 
-Launch the app bundle tracked in this repo directly:
-
-```bash
-open CodexMux.app
-```
-
-Or open the DMG in the repo root and drag the app into `/Applications`:
-
-```bash
-open CodexMux-0.1.0.dmg
-```
+Launch the app bundle tracked in this repo directly or install it to your Applications folder with the included DMG.
 
 ## Development
 
@@ -48,13 +31,10 @@ Build the native macOS app bundle:
 
 ```bash
 ./scripts/build-app.sh
-open CodexMux.app
 ```
 
 Build a DMG for distribution:
 
 ```bash
-./scripts/package-dmg.sh --version 0.1.0
+./scripts/package-dmg.sh
 ```
-
-That command also copies the final DMG to the repo root so it can be opened directly from there.
