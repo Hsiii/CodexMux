@@ -136,6 +136,7 @@ private struct ControlRowButtonStyle: ButtonStyle {
 }
 
 private struct ControlRowContent: View {
+    let id: String
     let title: String
     let showsCheckmark: Bool
     @State private var isHovered = false
@@ -166,6 +167,7 @@ private struct ControlRowContent: View {
             .onDisappear {
                 self.isHovered = false
             }
+            .id(id)
     }
 
     private var foregroundColor: Color {
@@ -443,6 +445,7 @@ struct SlimDashboardPanelView: View {
     ) -> some View {
         Button(action: action) {
             ControlRowContent(
+                id: title,
                 title: title,
                 showsCheckmark: showsCheckmark
             )
