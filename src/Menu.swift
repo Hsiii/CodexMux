@@ -125,7 +125,7 @@ struct SlimDashboardPanelView: View {
     private var panelContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             ForEach(sortedAccounts) { account in
-                SlimAccountCardView(
+                AccountCardView(
                     account: account,
                     displayName: nicknameStore.displayName(for: account)
                 )

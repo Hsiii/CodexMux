@@ -281,7 +281,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     let isActive: Bool
     let topCornerRadius: CGFloat
     let bottomCornerRadius: CGFloat
-    let contentPadding: CGFloat
+    let contentInsets: EdgeInsets
     @ViewBuilder let content: Content
 
     init(
@@ -290,7 +290,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         isActive: Bool,
         topCornerRadius: CGFloat,
         bottomCornerRadius: CGFloat,
-        contentPadding: CGFloat,
+        contentInsets: EdgeInsets,
         @ViewBuilder content: () -> Content
     ) {
         self.window = window
@@ -298,7 +298,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         self.isActive = isActive
         self.topCornerRadius = topCornerRadius
         self.bottomCornerRadius = bottomCornerRadius
-        self.contentPadding = contentPadding
+        self.contentInsets = contentInsets
         self.content = content()
     }
 
@@ -355,7 +355,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
     var body: some View {
         content
-            .padding(contentPadding)
+            .padding(contentInsets)
             .background {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
@@ -405,62 +405,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            WeeklyUsageSurfaceView(
-                window: account.weeklyWindow,
-                isLocked: isRollingWindowLocked(account.rollingWindow),
-                isActive: account.isCurrentSystemAccount == true,
-                topCornerRadius: 24,
-                bottomCornerRadius: 24,
-                contentPadding: 20
-            ) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        HeaderIdentityClusterView(
-                            displayName: displayName,
-                            rollingWindow: account.rollingWindow,
-                            nameFont: .title3.weight(.semibold),
-                            clusterWidth: 220,
-                            ringSize: 14,
-                            spacing: 8
-                        )
-
-                        Spacer(minLength: 12)
-
-                        Text(percentageText(for: account.weeklyWindow))
-                            .font(.title3.weight(.semibold))
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(accountTierText(for: account))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-
-                        Spacer(minLength: 12)
-
-                        Text(resetPaceText(for: account.weeklyWindow))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-    }
-}
-
-struct SlimAccountCardView: View {
-    let account: AccountSnapshot
-    let displayName: String
-    private let contentPadding: CGFloat = 12
+    private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -470,7 +415,7 @@ struct SlimAccountCardView: View {
                 isActive: account.isCurrentSystemAccount == true,
                 topCornerRadius: 20,
                 bottomCornerRadius: 20,
-                contentPadding: contentPadding
+                contentInsets: contentInsets
             ) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
