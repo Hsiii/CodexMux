@@ -11,7 +11,7 @@ private struct ViewHeightKey: PreferenceKey {
 
 // Layout constants and helpers for the menu panel
 private let minPanelHeight: CGFloat = 88
-private let panelWidth: CGFloat = 352
+private let panelWidth: CGFloat = 360
 private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 
