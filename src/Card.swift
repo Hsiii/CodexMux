@@ -426,47 +426,57 @@ struct AccountCardView: View {
     }
 
     var body: some View {
-        WeeklyUsageSurfaceView(
-            window: account.weeklyWindow,
-            isLocked: isRollingWindowLocked(account.rollingWindow),
-            isActive: account.isCurrentSystemAccount == true,
-            isHovered: isHovered,
-            topCornerRadius: 20,
-            bottomCornerRadius: 20,
-            contentInsets: contentInsets
-        ) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    self.identityCluster
+        Menu {
+            Button("Edit Display Name…", action: onEditDisplayName)
 
-                    Spacer(minLength: 12)
+            Button("Remove", role: .destructive, action: onRemove)
+                .disabled(!canRemove)
+        } label: {
+            WeeklyUsageSurfaceView(
+                window: account.weeklyWindow,
+                isLocked: isRollingWindowLocked(account.rollingWindow),
+                isActive: account.isCurrentSystemAccount == true,
+                isHovered: isHovered,
+                topCornerRadius: 20,
+                bottomCornerRadius: 20,
+                contentInsets: contentInsets
+            ) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        self.identityCluster
 
-                    Text(percentageText(for: account.weeklyWindow))
-                        .font(.headline.weight(.semibold))
-                        .fixedSize(horizontal: true, vertical: false)
-                }
+                        Spacer(minLength: 12)
 
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    if let tag = compactAccountTag(for: account) {
-                        Text(tag)
+                        Text(percentageText(for: account.weeklyWindow))
+                            .font(.headline.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        if let tag = compactAccountTag(for: account) {
+                            Text(tag)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer(minLength: 12)
+
+                        Text(resetPaceText(for: account.weeklyWindow))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-
-                    Spacer(minLength: 12)
-
-                    Text(resetPaceText(for: account.weeklyWindow))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .focusable(false)
         .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
         .onHover { hovering in
             isHovered = hovering
@@ -475,7 +485,10 @@ struct AccountCardView: View {
 
     private var identityCluster: some View {
         HStack(alignment: .firstTextBaseline, spacing: identitySpacing) {
-            self.actionsMenu
+            Text(truncatedDisplayName)
+                .font(.headline.weight(.semibold))
+                .lineLimit(1)
+                .foregroundStyle(.primary)
 
             if isRollingWindowLocked(account.rollingWindow) {
                 HStack(alignment: .firstTextBaseline, spacing: identitySpacing) {
@@ -492,31 +505,5 @@ struct AccountCardView: View {
             Spacer(minLength: 8)
         }
         .frame(width: identityClusterWidth, alignment: .leading)
-    }
-
-    private var actionsMenu: some View {
-        Menu {
-            Button("Edit Display Name…", action: onEditDisplayName)
-
-            Button("Remove", role: .destructive, action: onRemove)
-                .disabled(!canRemove)
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(truncatedDisplayName)
-                    .font(.headline.weight(.semibold))
-                    .lineLimit(1)
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            .foregroundStyle(.primary)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .focusable(false)
-        .fixedSize()
-        .help("Account actions")
     }
 }
