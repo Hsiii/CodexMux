@@ -80,7 +80,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         panel.contentViewController = hostingController
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.level = .statusBar
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
