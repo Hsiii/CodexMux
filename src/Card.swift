@@ -1,22 +1,6 @@
 import AppKit
 import SwiftUI
 
-struct CountdownText: View {
-    let value: String
-    let interval: TimeInterval
-
-    init(value: String, interval: TimeInterval = 1) {
-        self.value = value
-        self.interval = interval
-    }
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: interval)) { context in
-            Text(formatCountdown(value, now: context.date))
-        }
-    }
-}
-
 enum WindowHeaderPlacement {
     case above
     case below
@@ -283,7 +267,7 @@ struct HeaderIdentityClusterView: View {
                     Image(systemName: "lock.fill")
                         .font(nameFont.weight(.semibold))
 
-                    CountdownText(value: rollingWindow.resetsAt)
+                    Text(formatCountdown(rollingWindow.resetsAt))
                         .font(nameFont)
                         .lineLimit(1)
                 }
@@ -638,7 +622,7 @@ struct AccountCardView: View {
                     Image(systemName: "lock.fill")
                         .font(.headline.weight(.semibold))
 
-                    CountdownText(value: account.rollingWindow.resetsAt)
+                    Text(formatCountdown(account.rollingWindow.resetsAt))
                         .font(.headline.weight(.semibold))
                         .lineLimit(1)
                 }

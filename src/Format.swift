@@ -1,11 +1,11 @@
 import SwiftUI
 
-func formatCountdown(_ value: String, now: Date = Date()) -> String {
+func formatCountdown(_ value: String) -> String {
     guard let date = ISO8601DateFormatter().date(from: value) else {
         return "n/a"
     }
 
-    let diff = Int(date.timeIntervalSince(now))
+    let diff = Int(date.timeIntervalSinceNow)
 
     if diff <= 0 {
         return "just reset"
