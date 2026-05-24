@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum WindowHeaderPlacement {
@@ -409,6 +410,119 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     }
 }
 
+private struct AccountCardMenuTrigger: NSViewRepresentable {
+    let canRemove: Bool
+    let onEditDisplayName: () -> Void
+    let onRemove: () -> Void
+    let onHoverChanged: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            onEditDisplayName: onEditDisplayName,
+            onRemove: onRemove
+        )
+    }
+
+    func makeNSView(context: Context) -> MenuTriggerView {
+        let view = MenuTriggerView()
+        view.coordinator = context.coordinator
+        view.onHoverChanged = onHoverChanged
+        view.canRemove = canRemove
+        return view
+    }
+
+    func updateNSView(_ nsView: MenuTriggerView, context: Context) {
+        context.coordinator.onEditDisplayName = onEditDisplayName
+        context.coordinator.onRemove = onRemove
+        nsView.coordinator = context.coordinator
+        nsView.onHoverChanged = onHoverChanged
+        nsView.canRemove = canRemove
+    }
+
+    final class Coordinator: NSObject {
+        var onEditDisplayName: () -> Void
+        var onRemove: () -> Void
+
+        init(
+            onEditDisplayName: @escaping () -> Void,
+            onRemove: @escaping () -> Void
+        ) {
+            self.onEditDisplayName = onEditDisplayName
+            self.onRemove = onRemove
+        }
+
+        @objc func handleEditDisplayName() {
+            self.onEditDisplayName()
+        }
+
+        @objc func handleRemove() {
+            self.onRemove()
+        }
+    }
+
+    final class MenuTriggerView: NSView {
+        weak var coordinator: Coordinator?
+        var onHoverChanged: ((Bool) -> Void)?
+        var canRemove = false
+        private var trackingArea: NSTrackingArea?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+
+            if let trackingArea {
+                self.removeTrackingArea(trackingArea)
+            }
+
+            let nextTrackingArea = NSTrackingArea(
+                rect: self.bounds,
+                options: [.activeInKeyWindow, .inVisibleRect, .mouseEnteredAndExited],
+                owner: self,
+                userInfo: nil
+            )
+
+            self.addTrackingArea(nextTrackingArea)
+            self.trackingArea = nextTrackingArea
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            super.mouseEntered(with: event)
+            self.onHoverChanged?(true)
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            super.mouseExited(with: event)
+            self.onHoverChanged?(false)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            guard let coordinator else {
+                return
+            }
+
+            let menu = NSMenu()
+
+            let editItem = NSMenuItem(
+                title: "Edit Display Name…",
+                action: #selector(Coordinator.handleEditDisplayName),
+                keyEquivalent: ""
+            )
+            editItem.target = coordinator
+            menu.addItem(editItem)
+
+            let removeItem = NSMenuItem(
+                title: "Remove",
+                action: #selector(Coordinator.handleRemove),
+                keyEquivalent: ""
+            )
+            removeItem.target = coordinator
+            removeItem.isEnabled = self.canRemove
+            menu.addItem(removeItem)
+
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        }
+    }
+}
+
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
@@ -427,12 +541,9 @@ struct AccountCardView: View {
 
     var body: some View {
         self.cardContent
-        .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
         .overlay {
             self.cardMenuTrigger
-        }
-        .onHover { hovering in
-            isHovered = hovering
         }
     }
 
@@ -481,20 +592,14 @@ struct AccountCardView: View {
     }
 
     private var cardMenuTrigger: some View {
-        Menu {
-            Button("Edit Display Name…", action: onEditDisplayName)
-
-            Button("Remove", role: .destructive, action: onRemove)
-                .disabled(!canRemove)
-        } label: {
-            Rectangle()
-                .fill(Color.white.opacity(0.001))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .focusable(false)
+        AccountCardMenuTrigger(
+            canRemove: canRemove,
+            onEditDisplayName: onEditDisplayName,
+            onRemove: onRemove,
+            onHoverChanged: { hovering in
+                self.isHovered = hovering
+            }
+        )
     }
 
     private var identityCluster: some View {
