@@ -139,7 +139,11 @@ private struct ControlRowContent: View {
     let id: String
     let title: String
     let showsCheckmark: Bool
-    @State private var isHovered = false
+    @Binding var hoveredRowID: String?
+
+    private var isHovered: Bool {
+        hoveredRowID == id
+    }
 
     var body: some View {
         Text(title)
@@ -162,12 +166,8 @@ private struct ControlRowContent: View {
             .foregroundStyle(self.foregroundColor)
             .animation(.easeOut(duration: 0.12), value: isHovered)
             .onHover { hovering in
-                self.isHovered = hovering
+                self.hoveredRowID = hovering ? id : nil
             }
-            .onDisappear {
-                self.isHovered = false
-            }
-            .id(id)
     }
 
     private var foregroundColor: Color {
@@ -304,6 +304,7 @@ struct SlimDashboardPanelView: View {
     @Binding var measuredContentHeight: CGFloat
     let onEditDisplayNameRequested: (AccountSnapshot) -> Void
     let onRemoveRequested: (AccountSnapshot) -> Void
+    @State private var hoveredControlRowID: String?
 
     var body: some View {
         ZStack {
@@ -436,6 +437,9 @@ struct SlimDashboardPanelView: View {
             }
         }
         .padding(.bottom, controlSectionBottomPadding)
+        .onDisappear {
+            self.hoveredControlRowID = nil
+        }
     }
 
     private func controlRow(
@@ -447,7 +451,8 @@ struct SlimDashboardPanelView: View {
             ControlRowContent(
                 id: title,
                 title: title,
-                showsCheckmark: showsCheckmark
+                showsCheckmark: showsCheckmark,
+                hoveredRowID: self.$hoveredControlRowID
             )
         }
         .buttonStyle(ControlRowButtonStyle())
