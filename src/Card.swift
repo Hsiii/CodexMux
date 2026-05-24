@@ -489,20 +489,11 @@ struct AccountCardView: View {
             Button("Remove", role: .destructive, action: onRemove)
                 .disabled(!canRemove)
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(truncatedDisplayName)
-                    .font(.headline.weight(.semibold))
-                    .lineLimit(1)
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            .foregroundStyle(.primary)
+            Text(truncatedDisplayName)
+                .font(.headline.weight(.semibold))
+                .lineLimit(1)
+                .foregroundStyle(.primary)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
         .fixedSize()
         .help("Account actions")
     }
