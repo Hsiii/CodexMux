@@ -16,8 +16,7 @@ private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let controlSectionHorizontalInset: CGFloat = 0
-private let controlStateColumnWidth: CGFloat = 16
-private let controlStateSpacing: CGFloat = 0
+private let controlTextLeadingInset: CGFloat = 16
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -172,18 +171,18 @@ struct SlimDashboardPanelView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: controlStateSpacing) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: controlStateColumnWidth, alignment: .center)
-                    .opacity(showsCheckmark ? 1 : 0)
-
-                Text(title)
-                    .font(.system(size: 12.5, weight: .regular))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
-            }
+            Text(title)
+                .font(.system(size: 12.5, weight: .regular))
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
+                .padding(.leading, controlTextLeadingInset)
+                .overlay(alignment: .leading) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: controlTextLeadingInset, alignment: .center)
+                        .opacity(showsCheckmark ? 1 : 0)
+                }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
