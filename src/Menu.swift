@@ -180,7 +180,6 @@ struct SlimDashboardPanelView: View {
         }
         .padding(.top, cardBlockEdgePadding)
         .padding(.horizontal, cardBlockHorizontalPadding)
-        .padding(.bottom, cardBlockEdgePadding)
     }
 
     private var launchAtLoginTitle: String {
