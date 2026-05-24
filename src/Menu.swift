@@ -16,7 +16,8 @@ private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let cardBlockEdgePadding: CGFloat = 16
 private let cardBlockHorizontalPadding: CGFloat = 16
-private let controlSectionHorizontalInset: CGFloat = 12
+private let controlDividerHorizontalInset: CGFloat = 16
+private let controlRowHorizontalInset: CGFloat = 12
 private let controlSectionBottomPadding: CGFloat = 12
 private let controlTextLeadingInset: CGFloat = 14
 private let controlHoverCornerRadius: CGFloat = 8
@@ -190,6 +191,7 @@ struct SlimDashboardPanelView: View {
         VStack(alignment: .leading, spacing: 0) {
             Divider()
                 .padding(.bottom, controlDividerSpacing)
+                .padding(.horizontal, controlDividerHorizontalInset)
 
             self.controlRow(
                 self.launchAtLoginTitle,
@@ -199,12 +201,12 @@ struct SlimDashboardPanelView: View {
             }
             Divider()
                 .padding(.vertical, controlDividerSpacing)
+                .padding(.horizontal, controlDividerHorizontalInset)
 
             self.controlRow("Quit") {
                 NSApp.terminate(nil)
             }
         }
-        .padding(.horizontal, controlSectionHorizontalInset)
         .padding(.bottom, controlSectionBottomPadding)
     }
 
@@ -224,7 +226,8 @@ struct SlimDashboardPanelView: View {
                         .frame(width: controlTextLeadingInset, alignment: .center)
                         .opacity(showsCheckmark ? 1 : 0)
                 }
-            .contentShape(Rectangle())
+                .contentShape(Rectangle())
+                .padding(.horizontal, controlRowHorizontalInset)
         }
         .buttonStyle(ControlRowButtonStyle())
         .focusable(false)
