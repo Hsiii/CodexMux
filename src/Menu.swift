@@ -22,6 +22,10 @@ private let controlSectionBottomPadding: CGFloat = 12
 private let controlTextLeadingInset: CGFloat = 14
 private let controlHoverInset: CGFloat = 4
 private let controlHoverCornerRadius: CGFloat = 8
+private let editDialogWidth: CGFloat = 328
+private let editDialogOuterPadding: CGFloat = 20
+private let editDialogContentSpacing: CGFloat = 16
+private let editDialogButtonSpacing: CGFloat = 12
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -120,11 +124,57 @@ private struct ControlRowButtonStyle: ButtonStyle {
     }
 }
 
+private struct EditDisplayNameSheet: View {
+    let account: AccountSnapshot
+    @Binding var draftName: String
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    @FocusState private var isNameFieldFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: editDialogContentSpacing) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Edit Display Name")
+                    .font(.title3.weight(.semibold))
+
+                Text("Choose the name shown for \(account.email).")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            TextField(account.label, text: self.$draftName)
+                .textFieldStyle(.roundedBorder)
+                .focused(self.$isNameFieldFocused)
+                .frame(maxWidth: .infinity)
+                .onSubmit(self.onSave)
+
+            HStack(spacing: editDialogButtonSpacing) {
+                Spacer(minLength: 0)
+
+                Button("Cancel", action: self.onCancel)
+                    .keyboardShortcut(.cancelAction)
+
+                Button("Save", action: self.onSave)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(editDialogOuterPadding)
+        .frame(width: editDialogWidth, alignment: .leading)
+        .onAppear {
+            self.isNameFieldFocused = true
+        }
+    }
+}
+
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
+    @State private var editingAccount: AccountSnapshot?
+    @State private var draftDisplayName = ""
 
     var body: some View {
         ZStack {
@@ -145,6 +195,18 @@ struct SlimDashboardPanelView: View {
         }
         .preferredColorScheme(.dark)
         .background(InitialFirstResponderResetter())
+        .sheet(item: self.$editingAccount) { account in
+            EditDisplayNameSheet(
+                account: account,
+                draftName: self.$draftDisplayName,
+                onCancel: {
+                    self.cancelDisplayNameEditing()
+                },
+                onSave: {
+                    self.saveDisplayName(for: account)
+                }
+            )
+        }
         .task {
             await coordinator.syncNow()
         }
@@ -249,29 +311,21 @@ struct SlimDashboardPanelView: View {
     }
 
     private func promptForDisplayName(_ account: AccountSnapshot) {
-        let alert = NSAlert()
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        let currentNickname = nicknameStore.nickname(for: account)
+        self.draftDisplayName = nicknameStore.nickname(for: account)
+        self.editingAccount = account
+    }
 
-        alert.messageText = "Edit Display Name"
-        alert.informativeText = "Choose the name shown for \(account.email)."
-        alert.alertStyle = .informational
-        alert.accessoryView = textField
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
+    private func cancelDisplayNameEditing() {
+        self.editingAccount = nil
+        self.draftDisplayName = ""
+    }
 
-        textField.placeholderString = account.label
-        textField.stringValue = currentNickname
-
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else {
-            return
-        }
-
+    private func saveDisplayName(for account: AccountSnapshot) {
         nicknameStore.saveNicknames(
-            [account.id: textField.stringValue],
+            [account.id: self.draftDisplayName],
             for: [account]
         )
+        self.cancelDisplayNameEditing()
     }
 
     private func confirmRemoval(of account: AccountSnapshot) {
