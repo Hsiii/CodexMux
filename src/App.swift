@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private let statusPanelGap: CGFloat = 6
+
 @MainActor
 final class PopoverHostingController<Content: View>: NSHostingController<Content> {
     override func viewDidLayout() {
@@ -10,10 +12,24 @@ final class PopoverHostingController<Content: View>: NSHostingController<Content
 }
 
 @MainActor
+final class StatusPanel: NSPanel {
+    var onCloseRequest: (() -> Void)?
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+
+    override func cancelOperation(_ sender: Any?) {
+        self.onCloseRequest?()
+    }
+}
+
+@MainActor
 final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = PulseCoordinator()
-    private let popover = NSPopover()
     private var statusItem: NSStatusItem?
+    private var panel: StatusPanel?
+    private var localMonitor: Any?
+    private var globalMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         self.coordinator.start()
@@ -26,6 +42,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        self.teardownEventMonitors()
         ProcessInfo.processInfo.enableAutomaticTermination("CodexMux menu bar app")
     }
 
@@ -48,10 +65,24 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
 
     private func installPopover() {
         let hostingController = PopoverHostingController(rootView: PulseMenuView(coordinator: self.coordinator))
-        self.popover.contentViewController = hostingController
-        self.popover.behavior = .transient
-        self.popover.animates = true
-        self.popover.contentSize = NSSize(width: 360, height: 620)
+        let panel = StatusPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 620),
+            styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.contentViewController = hostingController
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = .statusBar
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.collectionBehavior = [.transient, .ignoresCycle]
+        panel.onCloseRequest = { [weak self] in
+            self?.closePanel()
+        }
+        self.panel = panel
     }
 
     @objc
@@ -60,20 +91,91 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        if self.popover.isShown {
-            self.popover.performClose(sender)
+        guard let panel else {
             return
         }
 
-        if let controller = self.popover.contentViewController {
-            self.popover.contentSize = controller.preferredContentSize
+        if panel.isVisible {
+            self.closePanel()
+            return
         }
 
-        self.popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        self.popover.contentViewController?.view.window?.becomeKey()
-        DispatchQueue.main.async { [weak self] in
-            self?.popover.contentViewController?.view.window?.makeFirstResponder(nil)
+        if let controller = panel.contentViewController {
+            controller.view.layoutSubtreeIfNeeded()
+            panel.setContentSize(controller.preferredContentSize)
         }
+
+        self.positionPanel(relativeTo: button, panel: panel)
+        self.installEventMonitors()
+        panel.orderFrontRegardless()
+        panel.makeKey()
+        DispatchQueue.main.async { [weak self] in
+            self?.panel?.makeFirstResponder(nil)
+        }
+    }
+
+    private func positionPanel(relativeTo button: NSStatusBarButton, panel: NSPanel) {
+        guard let buttonWindow = button.window else {
+            return
+        }
+
+        let buttonFrameInWindow = button.convert(button.bounds, to: nil)
+        let buttonFrameOnScreen = buttonWindow.convertToScreen(buttonFrameInWindow)
+        let visibleFrame = buttonWindow.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? buttonFrameOnScreen.insetBy(dx: -200, dy: -200)
+        let panelSize = panel.frame.size
+
+        var originX = buttonFrameOnScreen.midX - (panelSize.width / 2)
+        originX = min(max(originX, visibleFrame.minX + statusPanelGap), visibleFrame.maxX - panelSize.width - statusPanelGap)
+
+        let originY = buttonFrameOnScreen.minY - panelSize.height - statusPanelGap
+        panel.setFrameOrigin(NSPoint(x: originX, y: originY))
+    }
+
+    private func installEventMonitors() {
+        self.teardownEventMonitors()
+
+        self.localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
+            guard let self else {
+                return event
+            }
+
+            if event.type == .keyDown, event.keyCode == 53 {
+                self.closePanel()
+                return nil
+            }
+
+            guard let panel = self.panel, panel.isVisible else {
+                return event
+            }
+
+            if let eventWindow = event.window, eventWindow === panel || eventWindow === self.statusItem?.button?.window {
+                return event
+            }
+
+            self.closePanel()
+            return event
+        }
+
+        self.globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.closePanel()
+        }
+    }
+
+    private func teardownEventMonitors() {
+        if let localMonitor {
+            NSEvent.removeMonitor(localMonitor)
+            self.localMonitor = nil
+        }
+
+        if let globalMonitor {
+            NSEvent.removeMonitor(globalMonitor)
+            self.globalMonitor = nil
+        }
+    }
+
+    private func closePanel() {
+        self.panel?.orderOut(nil)
+        self.teardownEventMonitors()
     }
 
     private static var codexMenuBarIcon: NSImage {

@@ -18,14 +18,21 @@ private let cardBlockEdgePadding: CGFloat = 16
 private let cardBlockHorizontalPadding: CGFloat = 16
 private let controlDividerHorizontalInset: CGFloat = 16
 private let controlRowHorizontalInset: CGFloat = 12
-private let controlSectionBottomPadding: CGFloat = 12
 private let controlTextLeadingInset: CGFloat = 14
-private let controlHoverInset: CGFloat = 4
+private let controlHoverInset: CGFloat = 6
 private let controlHoverCornerRadius: CGFloat = 8
 private let editDialogWidth: CGFloat = 328
 private let editDialogOuterPadding: CGFloat = 20
 private let editDialogContentSpacing: CGFloat = 16
 private let editDialogButtonSpacing: CGFloat = 12
+
+private var controlSectionBottomPadding: CGFloat {
+    controlHoverInset
+}
+
+private var panelCornerRadius: CGFloat {
+    controlHoverCornerRadius + controlSectionBottomPadding
+}
 
 private struct AccountRowModel: Identifiable {
     let account: AccountSnapshot
@@ -406,7 +413,11 @@ struct PulseMenuView: View {
             }
         )
         .frame(width: panelWidth, height: self.panelHeight)
-        .background(.clear)
+        .background(
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
         .sheet(item: self.$activeDialog) { route in
             self.accountDialog(for: route)
         }
