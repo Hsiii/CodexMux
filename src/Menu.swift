@@ -135,6 +135,66 @@ private struct ControlRowButtonStyle: ButtonStyle {
     }
 }
 
+private struct HoverTrackingArea: NSViewRepresentable {
+    let onHoverChanged: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onHoverChanged: onHoverChanged)
+    }
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: TrackingView, context: Context) {
+        context.coordinator.onHoverChanged = onHoverChanged
+        nsView.coordinator = context.coordinator
+    }
+
+    final class Coordinator: NSObject {
+        var onHoverChanged: (Bool) -> Void
+
+        init(onHoverChanged: @escaping (Bool) -> Void) {
+            self.onHoverChanged = onHoverChanged
+        }
+    }
+
+    final class TrackingView: NSView {
+        weak var coordinator: Coordinator?
+        private var trackingArea: NSTrackingArea?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+
+            if let trackingArea {
+                self.removeTrackingArea(trackingArea)
+            }
+
+            let nextTrackingArea = NSTrackingArea(
+                rect: self.bounds,
+                options: [.activeInKeyWindow, .inVisibleRect, .mouseEnteredAndExited],
+                owner: self,
+                userInfo: nil
+            )
+
+            self.addTrackingArea(nextTrackingArea)
+            self.trackingArea = nextTrackingArea
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            super.mouseEntered(with: event)
+            self.coordinator?.onHoverChanged(true)
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            super.mouseExited(with: event)
+            self.coordinator?.onHoverChanged(false)
+        }
+    }
+}
+
 private struct ControlRowContent: View {
     let id: String
     let title: String
@@ -163,10 +223,17 @@ private struct ControlRowContent: View {
                     .fill(self.backgroundColor)
                     .padding(.horizontal, controlHoverInset)
             }
+            .overlay {
+                HoverTrackingArea { hovering in
+                    self.hoveredRowID = hovering ? id : nil
+                }
+            }
             .foregroundStyle(self.foregroundColor)
             .animation(.easeOut(duration: 0.12), value: isHovered)
-            .onHover { hovering in
-                self.hoveredRowID = hovering ? id : nil
+            .onDisappear {
+                if self.hoveredRowID == id {
+                    self.hoveredRowID = nil
+                }
             }
     }
 
