@@ -15,6 +15,8 @@ private let panelWidth: CGFloat = 360
 private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
+private let controlStateColumnWidth: CGFloat = 14
+private let controlStateSpacing: CGFloat = 8
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -141,7 +143,10 @@ struct SlimDashboardPanelView: View {
             Divider()
                 .padding(.bottom, controlDividerSpacing)
 
-            self.controlRow(self.launchAtLoginTitle) {
+            self.controlRow(
+                self.launchAtLoginTitle,
+                showsCheckmark: launchAtLoginStore.opensAtLogin
+            ) {
                 launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
             }
 
@@ -158,13 +163,25 @@ struct SlimDashboardPanelView: View {
         }
     }
 
-    private func controlRow(_ title: String, action: @escaping () -> Void) -> some View {
+    private func controlRow(
+        _ title: String,
+        showsCheckmark: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
-                .contentShape(Rectangle())
+            HStack(spacing: controlStateSpacing) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: controlStateColumnWidth, alignment: .center)
+                    .opacity(showsCheckmark ? 1 : 0)
+
+                Text(title)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .focusable(false)
