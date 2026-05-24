@@ -107,6 +107,26 @@ extension View {
     }
 }
 
+private struct LiquidGlassMaterialView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.material = material
+        view.isEmphasized = false
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.state = .active
+        nsView.blendingMode = .behindWindow
+        nsView.isEmphasized = false
+    }
+}
+
 private struct ControlRowButtonStyle: ButtonStyle {
     @State private var isHovered = false
 
@@ -420,12 +440,22 @@ struct PulseMenuView: View {
 
                 self.accountDialog(for: route)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color(nsColor: .windowBackgroundColor))
+                        LiquidGlassMaterialView(material: .hudWindow)
+                            .overlay {
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.14),
+                                        Color.white.opacity(0.04),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                            .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
                     }
                     .shadow(color: Color.black.opacity(0.28), radius: 20, y: 10)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -433,9 +463,22 @@ struct PulseMenuView: View {
         }
         .frame(width: panelWidth, height: self.panelHeight)
         .background(
-            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
+            LiquidGlassMaterialView(material: .hudWindow)
+                .overlay {
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.12),
+                            Color.white.opacity(0.03),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+        }
         .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
         .animation(.easeOut(duration: 0.14), value: self.activeDialog?.id)
         .alert("Couldn’t Update Login Item", isPresented: self.isShowingLaunchAtLoginError) {
