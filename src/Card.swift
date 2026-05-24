@@ -460,7 +460,7 @@ struct AccountCardView: View {
 struct SlimAccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
-    private let contentPadding: CGFloat = 16
+    private let contentPadding: CGFloat = 12
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
