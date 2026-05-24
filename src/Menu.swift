@@ -32,8 +32,6 @@ private let editDialogButtonSpacing: CGFloat = 12
 private var controlSectionBottomPadding: CGFloat {
     controlHoverInset
 }
-private let syncStatusRowHeight: CGFloat = 24
-private let syncStatusTopPadding: CGFloat = 8
 
 private struct AccountRowModel: Identifiable {
     let account: AccountSnapshot
@@ -418,10 +416,6 @@ struct SlimDashboardPanelView: View {
 
     private var panelContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if coordinator.syncStatus.phase == .syncing {
-                self.syncStatusRow
-            }
-
             self.accountCardStack
 
             self.controlStrip
@@ -452,42 +446,6 @@ struct SlimDashboardPanelView: View {
         }
         .padding(.top, cardBlockEdgePadding)
         .padding(.horizontal, cardBlockHorizontalPadding)
-    }
-
-    private var syncStatusRow: some View {
-        HStack(spacing: 8) {
-            if coordinator.syncStatus.phase == .syncing {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(.white)
-            }
-
-            Text(self.syncStatusText)
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Spacer(minLength: 8)
-        }
-        .frame(maxWidth: .infinity, minHeight: syncStatusRowHeight, alignment: .leading)
-        .padding(.top, syncStatusTopPadding)
-        .padding(.horizontal, cardBlockHorizontalPadding)
-    }
-
-    private var syncStatusText: String {
-        switch coordinator.syncStatus.phase {
-        case .idle:
-            return ""
-        case .syncing:
-            let completedCount = coordinator.syncStatus.completedCount
-            let totalCount = max(coordinator.syncStatus.totalCount, completedCount)
-
-            if totalCount == 0 {
-                return "Syncing accounts…"
-            }
-
-            return "Syncing \(completedCount) of \(totalCount) accounts…"
-        }
     }
 
     private var launchAtLoginTitle: String {
@@ -723,11 +681,7 @@ struct PulseMenuView: View {
         let cardsHeight = CGFloat(accountCount) * AccountCardView.height
         let cardGapsHeight = CGFloat(max(accountCount - 1, 0)) * cardStackSpacing
         let controlSectionHeight = controlHeight * 2 + controlDividerSpacing * 3 + controlSectionBottomPadding + 1
-        let syncStatusHeight = self.coordinator.syncStatus.phase == .syncing
-            ? (syncStatusTopPadding + syncStatusRowHeight + 16)
-            : 0
         let contentHeight =
-            syncStatusHeight +
             cardBlockEdgePadding +
             cardsHeight +
             cardGapsHeight +
