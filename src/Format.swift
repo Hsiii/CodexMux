@@ -224,15 +224,30 @@ func sortedAccountsByResetTime(
     displayName: (AccountSnapshot) -> String
 ) -> [AccountSnapshot] {
     return accounts.sorted { left, right in
+        let leftCurrent = displayRemainingPercentage(for: left.weeklyWindow)
+        let rightCurrent = displayRemainingPercentage(for: right.weeklyWindow)
+        let leftIsFull = leftCurrent == 100
+        let rightIsFull = rightCurrent == 100
+
+        if leftIsFull != rightIsFull {
+            return leftIsFull
+        }
+
+        if leftIsFull && rightIsFull {
+            let leftIsPaid = !isPersonalPlan(left.plan)
+            let rightIsPaid = !isPersonalPlan(right.plan)
+
+            if leftIsPaid != rightIsPaid {
+                return leftIsPaid
+            }
+        }
+
         let leftDelta = currentExpectationDelta(for: left.weeklyWindow)
         let rightDelta = currentExpectationDelta(for: right.weeklyWindow)
 
         if leftDelta != rightDelta {
             return leftDelta > rightDelta
         }
-
-        let leftCurrent = displayRemainingPercentage(for: left.weeklyWindow)
-        let rightCurrent = displayRemainingPercentage(for: right.weeklyWindow)
 
         if leftCurrent != rightCurrent {
             return leftCurrent > rightCurrent
