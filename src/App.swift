@@ -5,6 +5,12 @@ private let statusPanelGap: CGFloat = 6
 
 @MainActor
 final class PopoverHostingController<Content: View>: NSHostingController<Content> {
+    override func loadView() {
+        super.loadView()
+        self.view.wantsLayer = true
+        self.view.layer?.backgroundColor = NSColor.clear.cgColor
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
         self.preferredContentSize = self.view.fittingSize
