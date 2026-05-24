@@ -15,9 +15,10 @@ private let panelWidth: CGFloat = 360
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let cardBlockEdgePadding: CGFloat = 16
-private let controlSectionHorizontalInset: CGFloat = 12
+private let cardBlockHorizontalPadding: CGFloat = 16
+private let controlSectionHorizontalInset: CGFloat = 8
 private let controlSectionBottomPadding: CGFloat = 12
-private let controlTextLeadingInset: CGFloat = 18
+private let controlTextLeadingInset: CGFloat = 16
 private let controlHoverCornerRadius: CGFloat = 8
 
 private var maxPanelHeight: CGFloat {
@@ -177,6 +178,7 @@ struct SlimDashboardPanelView: View {
             }
         }
         .padding(.top, cardBlockEdgePadding)
+        .padding(.horizontal, cardBlockHorizontalPadding)
         .padding(.bottom, cardBlockEdgePadding)
     }
 
