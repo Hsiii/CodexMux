@@ -204,16 +204,19 @@ private struct ControlRowContent: View {
     }
 
     var body: some View {
-        Text(title)
-            .font(.system(size: 12.5, weight: .regular))
-            .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
-            .padding(.leading, controlTextLeadingInset)
-            .overlay(alignment: .leading) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: controlTextLeadingInset, alignment: .center)
-                    .opacity(showsCheckmark ? 1 : 0)
-            }
+        HStack(spacing: 0) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 13, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.primary)
+                .opacity(showsCheckmark ? 1 : 0)
+                .frame(width: controlTextLeadingInset, alignment: .center)
+
+            Text(title)
+                .font(.system(size: 12.5, weight: .regular))
+                .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
+                .foregroundStyle(self.titleColor)
+        }
             .contentShape(Rectangle())
             .padding(.horizontal, controlRowHorizontalInset)
             .background {
@@ -226,7 +229,6 @@ private struct ControlRowContent: View {
                     self.hoveredRowID = hovering ? id : nil
                 }
             }
-            .foregroundStyle(self.foregroundColor)
             .animation(.easeOut(duration: 0.12), value: isHovered)
             .onDisappear {
                 if self.hoveredRowID == id {
@@ -235,7 +237,7 @@ private struct ControlRowContent: View {
             }
     }
 
-    private var foregroundColor: Color {
+    private var titleColor: Color {
         isHovered ? Color(nsColor: .selectedMenuItemTextColor) : .primary
     }
 
