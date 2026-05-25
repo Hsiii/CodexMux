@@ -174,6 +174,10 @@ func accountTierText(for account: AccountSnapshot) -> String {
         return tier
     }
 
+    if workspace == "Personal" {
+        return "Personal"
+    }
+
     if tier == "Team" && !workspace.isEmpty {
         return "Team \(workspace)"
     }
