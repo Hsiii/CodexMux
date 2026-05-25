@@ -79,12 +79,40 @@ struct PulseConfig: Codable {
     )
 }
 
+func legacyBaseAccountID(from accountID: String) -> String {
+    let legacySeparator = "::"
+
+    guard let separatorRange = accountID.range(of: legacySeparator) else {
+        return accountID
+    }
+
+    return String(accountID[..<separatorRange.lowerBound])
+}
+
 func buildSnapshotKey(
     accountId: String,
-    plan: String,
-    workspaceLabel: String
+    email: String,
+    isCurrentSystemAccount: Bool
 ) -> String {
-    [accountId, plan, workspaceLabel].joined(separator: "::")
+    let normalizedAccountID = legacyBaseAccountID(from: accountId)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    let normalizedEmail = email
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+
+    if isCurrentSystemAccount {
+        if !normalizedEmail.isEmpty {
+            return "system::\(normalizedEmail)"
+        }
+
+        return normalizedAccountID.isEmpty ? "system" : "system::\(normalizedAccountID)"
+    }
+
+    if !normalizedAccountID.isEmpty {
+        return normalizedAccountID
+    }
+
+    return normalizedEmail.isEmpty ? UUID().uuidString : normalizedEmail
 }
 
 struct SystemAuthIdentity {

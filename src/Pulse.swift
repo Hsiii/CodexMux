@@ -341,8 +341,8 @@ final class PulseCoordinator: ObservableObject {
         )
         let snapshotKey = buildSnapshotKey(
             accountId: accountID,
-            plan: plan,
-            workspaceLabel: resolvedWorkspaceLabel
+            email: email,
+            isCurrentSystemAccount: isCurrentSystemAccount
         )
 
         return AccountSnapshot(
@@ -500,8 +500,8 @@ final class PulseCoordinator: ObservableObject {
             return nil
         }
 
-        let snapshotPrefix = account.accountId.components(separatedBy: "::").first ?? account.accountId
-        let normalizedPrefix = snapshotPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedPrefix = legacyBaseAccountID(from: account.accountId)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !normalizedPrefix.isEmpty else {
             return nil
@@ -593,18 +593,20 @@ final class PulseCoordinator: ObservableObject {
         existing: CachePayload,
         incoming: [AccountSnapshot]
     ) -> CachePayload {
-        var existingByIdentity = Dictionary(
-            uniqueKeysWithValues: existing.accounts.map {
-                ($0.accountId, $0)
-            }
-        )
+        var existingByIdentity: [String: AccountSnapshot] = [:]
+
+        for account in existing.accounts {
+            let identity = self.snapshotIdentity(for: account)
+            let prior = existingByIdentity[identity]
+            existingByIdentity[identity] = self.preferredStoredSnapshot(prior, candidate: account)
+        }
 
         for snapshot in incoming {
-            let identity = snapshot.accountId
+            let identity = self.snapshotIdentity(for: snapshot)
             let prior = existingByIdentity[identity]
 
             existingByIdentity[identity] = AccountSnapshot(
-                accountId: snapshot.accountId,
+                accountId: identity,
                 label: snapshot.label,
                 email: snapshot.email,
                 workspaceLabel: snapshot.workspaceLabel,
@@ -694,6 +696,44 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return Array((existing + [next]).suffix(12))
+    }
+
+    private func snapshotIdentity(for account: AccountSnapshot) -> String {
+        buildSnapshotKey(
+            accountId: account.accountId,
+            email: account.email,
+            isCurrentSystemAccount: account.isCurrentSystemAccount == true
+        )
+    }
+
+    private func preferredStoredSnapshot(
+        _ current: AccountSnapshot?,
+        candidate: AccountSnapshot
+    ) -> AccountSnapshot {
+        guard let current else {
+            return candidate
+        }
+
+        let currentDate = ISO8601DateFormatter().date(from: current.lastSyncedAt) ?? .distantPast
+        let candidateDate = ISO8601DateFormatter().date(from: candidate.lastSyncedAt) ?? .distantPast
+        let newest = candidateDate >= currentDate ? candidate : current
+        let oldest = candidateDate >= currentDate ? current : candidate
+
+        return AccountSnapshot(
+            accountId: self.snapshotIdentity(for: newest),
+            label: newest.label,
+            email: newest.email,
+            workspaceLabel: newest.workspaceLabel,
+            plan: newest.plan,
+            color: newest.color,
+            source: newest.source,
+            isCurrentSystemAccount: newest.isCurrentSystemAccount,
+            lastSyncedAt: newest.lastSyncedAt,
+            weeklyWindow: newest.weeklyWindow,
+            rollingWindow: newest.rollingWindow,
+            pace: newest.pace,
+            history: Array((oldest.history + newest.history).suffix(12))
+        )
     }
 
     private func displayPlan(_ rawPlan: String?) -> String {

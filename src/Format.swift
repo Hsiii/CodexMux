@@ -110,10 +110,19 @@ func displayWindowLabel(for window: UsageWindow) -> String {
 }
 
 func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
-    [
-        account.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-        account.plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    ].joined(separator: "::")
+    let normalizedEmail = account.email
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+
+    if !normalizedEmail.isEmpty {
+        return normalizedEmail
+    }
+
+    return buildSnapshotKey(
+        accountId: account.accountId,
+        email: account.email,
+        isCurrentSystemAccount: account.isCurrentSystemAccount == true
+    )
 }
 
 func isPersonalPlan(_ plan: String) -> Bool {

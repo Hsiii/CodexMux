@@ -163,10 +163,7 @@ final class NicknameStore: ObservableObject {
     }
 
     private func legacyStorageKeys(for account: AccountSnapshot) -> [String] {
-        let baseAccountId = account.accountId
-            .split(separator: "::", maxSplits: 1, omittingEmptySubsequences: false)
-            .first
-            .map(String.init) ?? account.accountId
+        let baseAccountId = legacyBaseAccountID(from: account.accountId)
 
         return [
             self.preferredStorageKey(for: account),
