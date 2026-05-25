@@ -71,30 +71,26 @@ func legacyBaseAccountID(from accountID: String) -> String {
     return String(accountID[..<separatorRange.lowerBound])
 }
 
-func buildSnapshotKey(
-    accountId: String,
+func buildAccountPrimaryKey(
     email: String,
-    isCurrentSystemAccount: Bool
+    workspaceLabel: String
 ) -> String {
-    let normalizedAccountID = accountId
-        .trimmingCharacters(in: .whitespacesAndNewlines)
     let normalizedEmail = email
         .trimmingCharacters(in: .whitespacesAndNewlines)
         .lowercased()
+    let normalizedWorkspace = workspaceLabel
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
 
-    if isCurrentSystemAccount {
-        if !normalizedEmail.isEmpty {
-            return "system::\(normalizedEmail)"
-        }
-
-        return normalizedAccountID.isEmpty ? "system" : "system::\(normalizedAccountID)"
+    if !normalizedEmail.isEmpty && !normalizedWorkspace.isEmpty {
+        return "\(normalizedEmail)::\(normalizedWorkspace)"
     }
 
-    if !normalizedAccountID.isEmpty {
-        return normalizedAccountID
+    if !normalizedEmail.isEmpty {
+        return normalizedEmail
     }
 
-    return normalizedEmail.isEmpty ? UUID().uuidString : normalizedEmail
+    return normalizedWorkspace.isEmpty ? UUID().uuidString : "workspace::\(normalizedWorkspace)"
 }
 
 struct SystemAuthIdentity {

@@ -79,8 +79,7 @@ final class CacheStore {
 
         for account in payload.accounts {
             let normalizedAccount = self.normalizedAccountIdentity(
-                for: account,
-                within: payload.accounts
+                for: account
             )
             let prior = accountsByIdentity[normalizedAccount.accountId]
             accountsByIdentity[normalizedAccount.accountId] = self.preferredAccountSnapshot(
@@ -102,20 +101,9 @@ final class CacheStore {
     }
 
     private func normalizedAccountIdentity(
-        for account: AccountSnapshot,
-        within accounts: [AccountSnapshot]
+        for account: AccountSnapshot
     ) -> AccountSnapshot {
-        let normalizedAccountID: String
-
-        if self.shouldRewriteLegacySystemIdentity(for: account, within: accounts) {
-            normalizedAccountID = buildSnapshotKey(
-                accountId: account.accountId,
-                email: account.email,
-                isCurrentSystemAccount: true
-            )
-        } else {
-            normalizedAccountID = account.accountId
-        }
+        let normalizedAccountID = canonicalAccountIdentity(for: account)
 
         return AccountSnapshot(
             accountId: normalizedAccountID,
@@ -129,47 +117,6 @@ final class CacheStore {
             weeklyWindow: account.weeklyWindow,
             rollingWindow: account.rollingWindow
         )
-    }
-
-    private func shouldRewriteLegacySystemIdentity(
-        for account: AccountSnapshot,
-        within accounts: [AccountSnapshot]
-    ) -> Bool {
-        guard account.source == "live system auth",
-              account.accountId.hasPrefix("system::") == false,
-              account.isCurrentSystemAccount != true
-        else {
-            return false
-        }
-
-        let normalizedEmail = account.email
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        guard !normalizedEmail.isEmpty else {
-            return false
-        }
-
-        return accounts.contains { candidate in
-            guard candidate.accountId != account.accountId else {
-                return false
-            }
-
-            let candidateEmail = candidate.email
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-
-            guard candidateEmail == normalizedEmail else {
-                return false
-            }
-
-            let candidateIsStableSystem = candidate.accountId == "system::\(normalizedEmail)"
-            let candidateLooksCanonical = candidate.accountId.hasPrefix("user-")
-                || candidate.accountId.hasPrefix("org-")
-                || candidate.accountId.hasPrefix("workspace-")
-
-            return candidateIsStableSystem || candidateLooksCanonical
-        }
     }
 
     private func preferredAccountSnapshot(
@@ -428,10 +375,9 @@ final class NicknameStore: ObservableObject {
         }
 
         return payload.accounts.map { account in
-            let stableAccountID = buildSnapshotKey(
-                accountId: account.accountId,
+            let stableAccountID = buildAccountPrimaryKey(
                 email: account.email,
-                isCurrentSystemAccount: account.source == "live system auth" || account.isCurrentSystemAccount == true
+                workspaceLabel: account.workspaceLabel
             )
 
             return AccountSnapshot(

@@ -386,10 +386,9 @@ final class PulseCoordinator: ObservableObject {
             plan,
             workspaceLabel: resolvedWorkspaceLabel
         )
-        let snapshotKey = buildSnapshotKey(
-            accountId: accountID,
+        let snapshotKey = buildAccountPrimaryKey(
             email: email,
-            isCurrentSystemAccount: isCurrentSystemAccount
+            workspaceLabel: resolvedWorkspaceLabel
         )
 
         return AccountSnapshot(
@@ -553,19 +552,12 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
-        guard account.source != "live system auth" else {
-            return nil
-        }
-
-        let normalizedPrefix = legacyBaseAccountID(from: account.accountId)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !normalizedPrefix.isEmpty else {
-            return nil
-        }
-
+        let accountIdentity = canonicalAccountIdentity(for: account)
         return config.accounts.first(where: {
-            $0.id.trimmingCharacters(in: .whitespacesAndNewlines) == normalizedPrefix
+            buildAccountPrimaryKey(
+                email: $0.email,
+                workspaceLabel: normalizedWorkspaceLabel($0.workspaceLabel, plan: $0.plan)
+            ) == accountIdentity
         })?.id
     }
 
@@ -613,7 +605,6 @@ final class PulseCoordinator: ObservableObject {
         incoming: [AccountSnapshot]
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
-        let existingAccounts = existing.accounts
 
         for account in existing.accounts {
             let identity = self.snapshotIdentity(for: account)
@@ -624,11 +615,7 @@ final class PulseCoordinator: ObservableObject {
         var activeIdentity: String?
 
         for snapshot in incoming {
-            let identity = self.resolvedIncomingIdentity(
-                for: snapshot,
-                existingAccounts: existingAccounts,
-                mergedAccounts: Array(existingByIdentity.values)
-            )
+            let identity = self.snapshotIdentity(for: snapshot)
             existingByIdentity[identity] = AccountSnapshot(
                 accountId: identity,
                 label: snapshot.label,
@@ -694,75 +681,10 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func snapshotIdentity(for account: AccountSnapshot) -> String {
-        buildSnapshotKey(
-            accountId: account.accountId,
+        buildAccountPrimaryKey(
             email: account.email,
-            isCurrentSystemAccount: account.isCurrentSystemAccount == true
+            workspaceLabel: account.workspaceLabel
         )
-    }
-
-    private func resolvedIncomingIdentity(
-        for account: AccountSnapshot,
-        existingAccounts: [AccountSnapshot],
-        mergedAccounts: [AccountSnapshot]
-    ) -> String {
-        let defaultIdentity = self.snapshotIdentity(for: account)
-
-        guard account.isCurrentSystemAccount == true,
-              let matchedIdentity = self.matchingCachedIdentity(
-                for: account,
-                candidates: existingAccounts + mergedAccounts
-              )
-        else {
-            return defaultIdentity
-        }
-
-        return matchedIdentity
-    }
-
-    private func matchingCachedIdentity(
-        for account: AccountSnapshot,
-        candidates: [AccountSnapshot]
-    ) -> String? {
-        let normalizedEmail = account.email
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        let normalizedWorkspace = account.workspaceLabel
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        let normalizedPlan = account.plan
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        guard !normalizedEmail.isEmpty else {
-            return nil
-        }
-
-        return candidates.first { candidate in
-            guard candidate.isCurrentSystemAccount != true else {
-                return false
-            }
-
-            let candidateEmail = candidate.email
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-            let candidateWorkspace = candidate.workspaceLabel
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-            let candidatePlan = candidate.plan
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-
-            guard candidateEmail == normalizedEmail,
-                  candidateWorkspace == normalizedWorkspace,
-                  candidatePlan == normalizedPlan
-            else {
-                return false
-            }
-
-            return candidate.accountId.hasPrefix("system::") == false
-        }
-        .map { self.snapshotIdentity(for: $0) }
     }
 
     private func preferredStoredSnapshot(

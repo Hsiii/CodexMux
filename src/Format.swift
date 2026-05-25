@@ -110,10 +110,9 @@ func displayWindowLabel(for window: UsageWindow) -> String {
 }
 
 func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
-    return buildSnapshotKey(
-        accountId: account.accountId,
+    return buildAccountPrimaryKey(
         email: account.email,
-        isCurrentSystemAccount: account.isCurrentSystemAccount == true
+        workspaceLabel: account.workspaceLabel
     )
 }
 
