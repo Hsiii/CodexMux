@@ -339,6 +339,10 @@ final class PulseCoordinator: ObservableObject {
             ),
             plan: plan
         )
+        let resolvedPlan = normalizedPlanLabel(
+            plan,
+            workspaceLabel: resolvedWorkspaceLabel
+        )
         let snapshotKey = buildSnapshotKey(
             accountId: accountID,
             email: email,
@@ -350,7 +354,7 @@ final class PulseCoordinator: ObservableObject {
             label: label,
             email: email,
             workspaceLabel: resolvedWorkspaceLabel,
-            plan: plan,
+            plan: resolvedPlan,
             color: color,
             source: source,
             isCurrentSystemAccount: isCurrentSystemAccount,

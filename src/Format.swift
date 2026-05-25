@@ -144,6 +144,16 @@ func normalizedWorkspaceLabel(_ workspaceLabel: String, plan: String) -> String 
     return trimmed
 }
 
+func normalizedPlanLabel(_ plan: String, workspaceLabel: String) -> String {
+    let trimmedPlan = plan.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if workspaceLabel == "Personal" && trimmedPlan.lowercased().contains("team") {
+        return "Codex Personal"
+    }
+
+    return trimmedPlan
+}
+
 func tierLabel(for plan: String) -> String {
     let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
