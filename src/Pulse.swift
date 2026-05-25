@@ -5,8 +5,6 @@ import SwiftUI
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
         meta: CacheMeta(
-            generatedAt: ISO8601DateFormatter().string(from: Date()),
-            cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
             source: "native-swift-cache"
         ),
         accounts: []
@@ -141,10 +139,8 @@ final class PulseCoordinator: ObservableObject {
                         identity: identity
                     ),
                     plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
-                    color: "#8cf5b0",
                     source: "live system auth",
-                    isCurrentSystemAccount: true,
-                    note: "Native Swift sync from local Codex auth."
+                    isCurrentSystemAccount: true
                 )
             ]
         }
@@ -178,10 +174,8 @@ final class PulseCoordinator: ObservableObject {
                         identity: identity
                     ),
                     plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
-                    color: "#8cf5b0",
                     source: "live system auth",
-                    isCurrentSystemAccount: workspaceAccountID == currentWorkspaceAccountID,
-                    note: "Native Swift sync from local Codex auth."
+                    isCurrentSystemAccount: workspaceAccountID == currentWorkspaceAccountID
                 )
             )
         }
@@ -215,10 +209,8 @@ final class PulseCoordinator: ObservableObject {
             plan: self.displayPlan(rawUsage["plan_type"] as? String) == "Codex"
                 ? account.plan
                 : self.displayPlan(rawUsage["plan_type"] as? String),
-            color: account.color,
             source: account.source ?? "native cookie sync",
-            isCurrentSystemAccount: false,
-            note: "Native Swift sync from account cookie."
+            isCurrentSystemAccount: false
         )
     }
 
@@ -378,14 +370,11 @@ final class PulseCoordinator: ObservableObject {
         email: String,
         workspaceLabel: String,
         plan: String,
-        color: String,
         source: String,
-        isCurrentSystemAccount: Bool,
-        note: String
+        isCurrentSystemAccount: Bool
     ) throws -> AccountSnapshot {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
         let now = ISO8601DateFormatter().string(from: Date())
-        let pace = self.projectPace(weeklyWindow: windows.weeklyWindow, rollingWindow: windows.rollingWindow)
         let resolvedWorkspaceLabel = normalizedWorkspaceLabel(
             self.resolveWorkspaceLabel(
             payload: payload,
@@ -409,21 +398,11 @@ final class PulseCoordinator: ObservableObject {
             email: email,
             workspaceLabel: resolvedWorkspaceLabel,
             plan: resolvedPlan,
-            color: color,
             source: source,
             isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: now,
             weeklyWindow: windows.weeklyWindow,
-            rollingWindow: windows.rollingWindow,
-            pace: pace,
-            history: [
-                HistorySnapshot(
-                    capturedAt: now,
-                    weeklyUsedMinutes: windows.weeklyWindow.usedMinutes,
-                    rollingUsedMinutes: windows.rollingWindow.usedMinutes,
-                    note: note
-                )
-            ]
+            rollingWindow: windows.rollingWindow
         )
     }
 
@@ -629,44 +608,6 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
-    private func projectPace(weeklyWindow: UsageWindow, rollingWindow: UsageWindow) -> PaceSnapshot {
-        if !weeklyWindow.available {
-            return PaceSnapshot(
-                status: "steady",
-                summary: "Weekly pace unavailable",
-                detail: "This account did not expose a weekly limit window."
-            )
-        }
-
-        let paceStatus: String
-
-        switch weeklyWindow.usedPercentage {
-        case ..<45:
-            paceStatus = "ahead"
-        case ..<75:
-            paceStatus = "steady"
-        case ..<90:
-            paceStatus = "tight"
-        default:
-            paceStatus = "over"
-        }
-
-        let headroom = max(Int(round(100 - weeklyWindow.usedPercentage)), 0)
-        let detail: String
-
-        if rollingWindow.available {
-            detail = "Current account is using \(Int(round(rollingWindow.usedPercentage)))% of the rolling window and \(Int(round(weeklyWindow.usedPercentage)))% of the weekly window."
-        } else {
-            detail = "Current account is using \(Int(round(weeklyWindow.usedPercentage)))% of the weekly window."
-        }
-
-        return PaceSnapshot(
-            status: paceStatus,
-            summary: "\(headroom)% weekly headroom left",
-            detail: detail
-        )
-    }
-
     private func mergeSnapshots(
         existing: CachePayload,
         incoming: [AccountSnapshot]
@@ -688,25 +629,17 @@ final class PulseCoordinator: ObservableObject {
                 existingAccounts: existingAccounts,
                 mergedAccounts: Array(existingByIdentity.values)
             )
-            let prior = existingByIdentity[identity]
-
             existingByIdentity[identity] = AccountSnapshot(
                 accountId: identity,
                 label: snapshot.label,
                 email: snapshot.email,
                 workspaceLabel: snapshot.workspaceLabel,
                 plan: snapshot.plan,
-                color: snapshot.color,
                 source: snapshot.source,
                 isCurrentSystemAccount: snapshot.isCurrentSystemAccount,
                 lastSyncedAt: snapshot.lastSyncedAt,
                 weeklyWindow: snapshot.weeklyWindow,
-                rollingWindow: snapshot.rollingWindow,
-                pace: snapshot.pace,
-                history: self.mergedHistory(
-                    existing: prior?.history ?? [],
-                    next: snapshot.history.first
-                )
+                rollingWindow: snapshot.rollingWindow
             )
 
             if snapshot.isCurrentSystemAccount == true {
@@ -726,14 +659,11 @@ final class PulseCoordinator: ObservableObject {
                     email: account.email,
                     workspaceLabel: account.workspaceLabel,
                     plan: account.plan,
-                    color: account.color,
                     source: account.source,
                     isCurrentSystemAccount: isActive,
                     lastSyncedAt: account.lastSyncedAt,
                     weeklyWindow: account.weeklyWindow,
-                    rollingWindow: account.rollingWindow,
-                    pace: account.pace,
-                    history: account.history
+                    rollingWindow: account.rollingWindow
                 )
             }
         } else {
@@ -744,14 +674,11 @@ final class PulseCoordinator: ObservableObject {
                     email: account.email,
                     workspaceLabel: account.workspaceLabel,
                     plan: account.plan,
-                    color: account.color,
                     source: account.source,
                     isCurrentSystemAccount: false,
                     lastSyncedAt: account.lastSyncedAt,
                     weeklyWindow: account.weeklyWindow,
-                    rollingWindow: account.rollingWindow,
-                    pace: account.pace,
-                    history: account.history
+                    rollingWindow: account.rollingWindow
                 )
             }
         }
@@ -760,29 +687,10 @@ final class PulseCoordinator: ObservableObject {
 
         return CachePayload(
             meta: CacheMeta(
-                generatedAt: ISO8601DateFormatter().string(from: Date()),
-                cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
                 source: "native-swift-cache"
             ),
             accounts: mergedAccounts
         )
-    }
-
-    private func mergedHistory(
-        existing: [HistorySnapshot],
-        next: HistorySnapshot?
-    ) -> [HistorySnapshot] {
-        guard let next else {
-            return existing
-        }
-
-        if let last = existing.last,
-           last.weeklyUsedMinutes == next.weeklyUsedMinutes,
-           last.rollingUsedMinutes == next.rollingUsedMinutes {
-            return existing
-        }
-
-        return Array((existing + [next]).suffix(12))
     }
 
     private func snapshotIdentity(for account: AccountSnapshot) -> String {
@@ -868,7 +776,6 @@ final class PulseCoordinator: ObservableObject {
         let currentDate = ISO8601DateFormatter().date(from: current.lastSyncedAt) ?? .distantPast
         let candidateDate = ISO8601DateFormatter().date(from: candidate.lastSyncedAt) ?? .distantPast
         let newest = candidateDate >= currentDate ? candidate : current
-        let oldest = candidateDate >= currentDate ? current : candidate
 
         return AccountSnapshot(
             accountId: self.snapshotIdentity(for: newest),
@@ -876,14 +783,11 @@ final class PulseCoordinator: ObservableObject {
             email: newest.email,
             workspaceLabel: newest.workspaceLabel,
             plan: newest.plan,
-            color: newest.color,
             source: newest.source,
             isCurrentSystemAccount: newest.isCurrentSystemAccount,
             lastSyncedAt: newest.lastSyncedAt,
             weeklyWindow: newest.weeklyWindow,
-            rollingWindow: newest.rollingWindow,
-            pace: newest.pace,
-            history: Array((oldest.history + newest.history).suffix(12))
+            rollingWindow: newest.rollingWindow
         )
     }
 

@@ -42,8 +42,6 @@ final class CacheStore {
         let filteredAccounts = existing.accounts.filter { $0.accountId != accountID }
         let payload = CachePayload(
             meta: CacheMeta(
-                generatedAt: ISO8601DateFormatter().string(from: Date()),
-                cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
                 source: existing.meta.source
             ),
             accounts: filteredAccounts
@@ -70,8 +68,6 @@ final class CacheStore {
     private func emptyPayload() -> CachePayload {
         CachePayload(
             meta: CacheMeta(
-                generatedAt: ISO8601DateFormatter().string(from: Date()),
-                cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
                 source: "native-swift-cache"
             ),
             accounts: []
@@ -99,8 +95,6 @@ final class CacheStore {
 
         return CachePayload(
             meta: CacheMeta(
-                generatedAt: payload.meta.generatedAt,
-                cachePath: payload.meta.cachePath,
                 source: payload.meta.source
             ),
             accounts: migratedAccounts
@@ -129,14 +123,11 @@ final class CacheStore {
             email: account.email,
             workspaceLabel: account.workspaceLabel,
             plan: account.plan,
-            color: account.color,
             source: account.source,
             isCurrentSystemAccount: account.isCurrentSystemAccount,
             lastSyncedAt: account.lastSyncedAt,
             weeklyWindow: account.weeklyWindow,
-            rollingWindow: account.rollingWindow,
-            pace: account.pace,
-            history: account.history
+            rollingWindow: account.rollingWindow
         )
     }
 
@@ -192,8 +183,6 @@ final class CacheStore {
         let currentDate = ISO8601DateFormatter().date(from: current.lastSyncedAt) ?? .distantPast
         let candidateDate = ISO8601DateFormatter().date(from: candidate.lastSyncedAt) ?? .distantPast
         let newest = candidateDate >= currentDate ? candidate : current
-        let oldest = candidateDate >= currentDate ? current : candidate
-        let mergedHistory = Array((oldest.history + newest.history).suffix(12))
 
         return AccountSnapshot(
             accountId: newest.accountId,
@@ -201,14 +190,11 @@ final class CacheStore {
             email: newest.email,
             workspaceLabel: newest.workspaceLabel,
             plan: newest.plan,
-            color: newest.color,
             source: newest.source,
             isCurrentSystemAccount: newest.isCurrentSystemAccount,
             lastSyncedAt: newest.lastSyncedAt,
             weeklyWindow: newest.weeklyWindow,
-            rollingWindow: newest.rollingWindow,
-            pace: newest.pace,
-            history: mergedHistory
+            rollingWindow: newest.rollingWindow
         )
     }
 }
@@ -454,14 +440,11 @@ final class NicknameStore: ObservableObject {
                 email: account.email,
                 workspaceLabel: account.workspaceLabel,
                 plan: account.plan,
-                color: account.color,
                 source: account.source,
                 isCurrentSystemAccount: account.isCurrentSystemAccount,
                 lastSyncedAt: account.lastSyncedAt,
                 weeklyWindow: account.weeklyWindow,
-                rollingWindow: account.rollingWindow,
-                pace: account.pace,
-                history: account.history
+                rollingWindow: account.rollingWindow
             )
         }
     }

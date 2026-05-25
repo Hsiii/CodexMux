@@ -13,40 +13,22 @@ struct UsageWindow: Codable {
     }
 }
 
-struct PaceSnapshot: Codable {
-    let status: String
-    let summary: String
-    let detail: String
-}
-
-struct HistorySnapshot: Codable {
-    let capturedAt: String
-    let weeklyUsedMinutes: Int
-    let rollingUsedMinutes: Int
-    let note: String
-}
-
 struct AccountSnapshot: Codable, Identifiable {
     let accountId: String
     let label: String
     let email: String
     let workspaceLabel: String
     let plan: String
-    let color: String
     let source: String
     let isCurrentSystemAccount: Bool?
     let lastSyncedAt: String
     let weeklyWindow: UsageWindow
     let rollingWindow: UsageWindow
-    let pace: PaceSnapshot
-    let history: [HistorySnapshot]
 
     var id: String { self.accountId }
 }
 
 struct CacheMeta: Codable {
-    let generatedAt: String
-    let cachePath: String
     let source: String
 }
 
