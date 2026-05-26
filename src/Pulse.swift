@@ -873,21 +873,25 @@ final class PulseCoordinator: ObservableObject {
         }
 
         let existingWorkspaceSlot = self.systemWorkspaceSlot(for: existing)
+        guard existingWorkspaceSlot != nil else {
+            return false
+        }
+
         return incomingForProfile.contains { candidate in
             candidate.accountId != existing.accountId
                 && self.systemWorkspaceSlot(for: candidate) == existingWorkspaceSlot
         }
     }
 
-    private func systemWorkspaceSlot(for account: AccountSnapshot) -> String {
+    private func systemWorkspaceSlot(for account: AccountSnapshot) -> String? {
         if let workspaceID = resolvedWorkspaceIdentity(
             accountId: account.accountId,
             workspaceId: account.workspaceId
         ) {
-            return "workspace:\(workspaceID.lowercased())"
+            return workspaceID.lowercased()
         }
 
-        return "__no_workspace__"
+        return nil
     }
 
     private func displayPlan(_ rawPlan: String?) -> String {
