@@ -10,10 +10,10 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 
 ## Why CodexMux
 
-- **Unified Tracking:** Monitor usage across multiple Codex accounts and workspaces in one place.
-- **Zero-Touch Sync:** Automatically discovers local Codex sessions and keeps usage data in sync without manual login or credential input.
-- **Intelligent Prioritization:** Accounts are ranked by current usage relative to their expected pacing, lets you identify which account has the most available headroom at a glance.
-- **Privacy First:** Built natively in Swift with local-only storage and nickname support to keep account details private and unobtrusive.
+- **Zero Setup:** Picks up local Codex sessions automatically and refreshes usage in the background, no manual setup required.
+- **Unified Tracking:** See usage across multiple Codex accounts and workspaces in one menu bar view, without bouncing between sessions.
+- **Plan your Usage:** Accounts are ranked by remaining headroom, making it obvious which account to use next.
+- **Privacy First:** Keep account details readable without exposing more than you need. CodexMux supports custom display names and stores account metadata locally in a native on-disk SQLite database, so your account inventory stays private, durable, and under your control.
 
 ## Install
 
