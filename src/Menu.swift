@@ -366,7 +366,7 @@ private enum AccountDialogRoute: Identifiable {
 
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
-    @ObservedObject var nicknameStore: NicknameStore
+    @ObservedObject var displayNameStore: DisplayNameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
     let panelHeight: CGFloat
@@ -404,13 +404,13 @@ struct SlimDashboardPanelView: View {
 
     private var rows: [AccountRowModel] {
         let sortedAccounts = sortedAccountsByResetTime(coordinator.cache.accounts) { account in
-            nicknameStore.displayName(for: account)
+            displayNameStore.displayName(for: account)
         }
 
         return sortedAccounts.map { account in
             AccountRowModel(
                 account: account,
-                displayName: nicknameStore.displayName(for: account),
+                displayName: displayNameStore.displayName(for: account),
                 canRemove: coordinator.isRemovable(account)
             )
         }
@@ -514,7 +514,7 @@ struct SlimDashboardPanelView: View {
 
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
-    @StateObject private var nicknameStore = NicknameStore()
+    @StateObject private var displayNameStore = DisplayNameStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var dashboardContentHeight: CGFloat = 0
     @State private var activeDialog: AccountDialogRoute?
@@ -524,7 +524,7 @@ struct PulseMenuView: View {
         ZStack {
             SlimDashboardPanelView(
                 coordinator: coordinator,
-                nicknameStore: nicknameStore,
+                displayNameStore: displayNameStore,
                 launchAtLoginStore: launchAtLoginStore,
                 measuredContentHeight: self.$dashboardContentHeight,
                 panelHeight: self.panelHeight,
@@ -581,7 +581,7 @@ struct PulseMenuView: View {
     }
 
     private func promptForDisplayName(_ account: AccountSnapshot) {
-        self.draftDisplayName = self.nicknameStore.nickname(for: account)
+        self.draftDisplayName = self.displayNameStore.editableDisplayName(for: account)
         self.activeDialog = .edit(account)
     }
 
@@ -595,7 +595,7 @@ struct PulseMenuView: View {
     }
 
     private func saveDisplayName(for account: AccountSnapshot) {
-        self.nicknameStore.saveNicknames(
+        self.displayNameStore.saveDisplayNames(
             [account.id: self.draftDisplayName],
             for: [account]
         )
@@ -609,7 +609,7 @@ struct PulseMenuView: View {
     private func confirmRemoval(of account: AccountSnapshot) {
         do {
             try self.coordinator.removeAccount(account)
-            self.nicknameStore.removeNickname(for: account)
+            self.displayNameStore.removeDisplayName(for: account)
             self.activeDialog = nil
         } catch {
             self.activeDialog = nil

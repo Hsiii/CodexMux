@@ -3,15 +3,21 @@ import SQLite3
 
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-struct NicknamePayload: Codable {
+struct DisplayNamePayload: Codable {
     let schemaVersion: Int
     let updatedAt: String
-    let nicknames: [String: String]
+    let displayNames: [String: String]
 
-    static let empty = NicknamePayload(
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case updatedAt
+        case displayNames = "nicknames"
+    }
+
+    static let empty = DisplayNamePayload(
         schemaVersion: 1,
         updatedAt: ISO8601DateFormatter().string(from: .distantPast),
-        nicknames: [:]
+        displayNames: [:]
     )
 }
 
@@ -29,8 +35,8 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.codexmux.storage", qos: .userInitiated)
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    private let defaultsKey = "codexmux.nicknames.v1"
-    private let legacyDefaultsKey = "codexboard.nicknames.v1"
+    private let legacyDefaultsKey = "codexmux.nicknames.v1"
+    private let olderLegacyDefaultsKey = "codexboard.nicknames.v1"
     private var database: OpaquePointer?
 
     private init() {}
@@ -121,25 +127,25 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         }
     }
 
-    func loadNicknames() -> [String: String] {
+    func loadDisplayNames() -> [String: String] {
         self.queue.sync {
             do {
                 try self.prepareDatabaseIfNeededLocked()
-                return try self.fetchNicknamesLocked()
+                return try self.fetchDisplayNamesLocked()
             } catch {
                 return [:]
             }
         }
     }
 
-    func saveNicknames(
-        _ nicknames: [String: String],
+    func saveDisplayNames(
+        _ displayNames: [String: String],
         event: String
     ) throws {
         try self.queue.sync {
             try self.prepareDatabaseIfNeededLocked()
-            try self.inTransactionLocked(event: event, touchedPaths: ["nicknames"]) {
-                try self.replaceNicknamesLocked(nicknames)
+            try self.inTransactionLocked(event: event, touchedPaths: ["display_names"]) {
+                try self.replaceDisplayNamesLocked(displayNames)
             }
         }
     }
@@ -177,6 +183,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             try self.executeLocked("PRAGMA busy_timeout = 5000;")
             try self.createSchemaLocked()
             try self.migrateAccountSnapshotSchemaIfNeededLocked()
+            try self.migrateDisplayNameSchemaIfNeededLocked()
             try self.migrateLegacyStorageIfNeededLocked()
         } catch {
             sqlite3_close(database)
@@ -241,9 +248,9 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         )
         try self.executeLocked(
             """
-            CREATE TABLE IF NOT EXISTS nicknames (
-                storage_key TEXT PRIMARY KEY,
-                nickname TEXT NOT NULL,
+            CREATE TABLE IF NOT EXISTS display_names (
+                email TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             """
@@ -268,19 +275,46 @@ final class DurableStoreCoordinator: @unchecked Sendable {
 
         let cache = self.loadLegacyCacheLocked()
         let config = self.loadLegacyConfigLocked()
-        let nicknames = self.loadLegacyNicknamesLocked()
-        let importedAnyData = !cache.accounts.isEmpty || !config.accounts.isEmpty || !nicknames.isEmpty
+        let legacyDisplayNames = self.loadLegacyDisplayNamesLocked()
+        let displayNames = self.emailDisplayNames(
+            fromRawDisplayNames: legacyDisplayNames,
+            accounts: cache.accounts
+        )
+        let importedAnyData = !cache.accounts.isEmpty || !config.accounts.isEmpty || !displayNames.isEmpty
 
         try self.inTransactionLocked(
             event: importedAnyData ? "storage.migrate_legacy" : "storage.bootstrap",
-            touchedPaths: ["meta", "account_snapshots", "account_configs", "nicknames"]
+            touchedPaths: ["meta", "account_snapshots", "account_configs", "display_names"]
         ) {
             try self.replaceMetaValueLocked("sqlite", for: "storage.engine")
             try self.replaceMetaValueLocked(cache.meta.source, for: "cache.source")
             try self.replaceMetaValueLocked(String(config.pollIntervalSeconds), for: "config.poll_interval_seconds")
             try self.replaceAccountSnapshotsLocked(cache.accounts)
             try self.replaceAccountConfigsLocked(config.accounts)
-            try self.replaceNicknamesLocked(nicknames)
+            try self.replaceDisplayNamesLocked(displayNames)
+        }
+    }
+
+    private func migrateDisplayNameSchemaIfNeededLocked() throws {
+        guard try self.metaValueLocked(for: "display_names.migrated_from_legacy.v1") == nil else {
+            return
+        }
+
+        let legacyDisplayNames = try self.fetchLegacyDisplayNamesLocked()
+        let accounts = try self.fetchAccountSnapshotsLocked()
+        let displayNames = self.emailDisplayNames(
+            fromRawDisplayNames: legacyDisplayNames,
+            accounts: accounts
+        )
+
+        try self.inTransactionLocked(
+            event: "display_names.migrate_legacy",
+            touchedPaths: ["meta", "display_names"]
+        ) {
+            if !displayNames.isEmpty {
+                try self.replaceDisplayNamesLocked(displayNames)
+            }
+            try self.replaceMetaValueLocked("true", for: "display_names.migrated_from_legacy.v1")
         }
     }
 
@@ -321,18 +355,18 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         return config
     }
 
-    private func loadLegacyNicknamesLocked() -> [String: String] {
-        if let data = try? Data(contentsOf: CodexMuxPaths.nicknames),
-           let payload = try? self.decoder.decode(NicknamePayload.self, from: data) {
-            return payload.nicknames
+    private func loadLegacyDisplayNamesLocked() -> [String: String] {
+        if let data = try? Data(contentsOf: CodexMuxPaths.legacyDisplayNames),
+           let payload = try? self.decoder.decode(DisplayNamePayload.self, from: data) {
+            return payload.displayNames
         }
 
-        let defaultsNicknames = UserDefaults.standard.dictionary(forKey: self.defaultsKey) as? [String: String] ?? [:]
-        if !defaultsNicknames.isEmpty {
-            return defaultsNicknames
+        let legacyDisplayNames = UserDefaults.standard.dictionary(forKey: self.legacyDefaultsKey) as? [String: String] ?? [:]
+        if !legacyDisplayNames.isEmpty {
+            return legacyDisplayNames
         }
 
-        return UserDefaults.standard.dictionary(forKey: self.legacyDefaultsKey) as? [String: String] ?? [:]
+        return UserDefaults.standard.dictionary(forKey: self.olderLegacyDefaultsKey) as? [String: String] ?? [:]
     }
 
     private func inTransactionLocked(
@@ -384,6 +418,16 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         }
 
         return false
+    }
+
+    private func tableExistsLocked(_ table: String) throws -> Bool {
+        let statement = try self.prepareLocked(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1;"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_text(statement, 1, table, -1, SQLITE_TRANSIENT)
+        return sqlite3_step(statement) == SQLITE_ROW
     }
 
     private func metaValueLocked(for key: String) throws -> String? {
@@ -639,43 +683,161 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         }
     }
 
-    private func fetchNicknamesLocked() throws -> [String: String] {
+    private func fetchDisplayNamesLocked() throws -> [String: String] {
         let statement = try self.prepareLocked(
-            "SELECT storage_key, nickname FROM nicknames ORDER BY storage_key COLLATE NOCASE ASC;"
+            "SELECT email, display_name FROM display_names ORDER BY email COLLATE NOCASE ASC;"
         )
         defer { sqlite3_finalize(statement) }
 
-        var nicknames: [String: String] = [:]
+        var displayNames: [String: String] = [:]
 
         while sqlite3_step(statement) == SQLITE_ROW {
-            if let key = self.columnText(statement, index: 0),
-               let nickname = self.columnText(statement, index: 1) {
-                nicknames[key] = nickname
+            if let email = self.columnText(statement, index: 0),
+               let displayName = self.columnText(statement, index: 1) {
+                displayNames[email] = displayName
             }
         }
 
-        return nicknames
+        return displayNames
     }
 
-    private func replaceNicknamesLocked(_ nicknames: [String: String]) throws {
-        try self.executeLocked("DELETE FROM nicknames;")
+    private func replaceDisplayNamesLocked(_ displayNames: [String: String]) throws {
+        try self.executeLocked("DELETE FROM display_names;")
 
         let statement = try self.prepareLocked(
-            "INSERT INTO nicknames (storage_key, nickname, updated_at) VALUES (?, ?, ?);"
+            "INSERT INTO display_names (email, display_name, updated_at) VALUES (?, ?, ?);"
         )
         defer { sqlite3_finalize(statement) }
 
         let timestamp = ISO8601DateFormatter().string(from: Date())
 
-        for (key, nickname) in nicknames {
+        for (email, displayName) in displayNames {
             sqlite3_reset(statement)
             sqlite3_clear_bindings(statement)
 
-            self.bindText(key, to: statement, index: 1)
-            self.bindText(nickname, to: statement, index: 2)
+            self.bindText(email, to: statement, index: 1)
+            self.bindText(displayName, to: statement, index: 2)
             self.bindText(timestamp, to: statement, index: 3)
             try self.stepDoneLocked(statement)
         }
+    }
+
+    private func fetchLegacyDisplayNamesLocked() throws -> [String: String] {
+        guard try self.tableExistsLocked("nicknames") else {
+            return [:]
+        }
+
+        let statement = try self.prepareLocked(
+            "SELECT storage_key, nickname FROM nicknames ORDER BY storage_key COLLATE NOCASE ASC;"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        var displayNames: [String: String] = [:]
+
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let key = self.columnText(statement, index: 0),
+               let displayName = self.columnText(statement, index: 1) {
+                displayNames[key] = displayName
+            }
+        }
+
+        return displayNames
+    }
+
+    private func emailDisplayNames(
+        fromRawDisplayNames rawDisplayNames: [String: String],
+        accounts: [AccountSnapshot]
+    ) -> [String: String] {
+        guard !rawDisplayNames.isEmpty else {
+            return [:]
+        }
+
+        var displayNames: [String: String] = [:]
+
+        for account in accounts {
+            let email = self.normalizedEmail(account.email)
+            guard !email.isEmpty, displayNames[email] == nil else {
+                continue
+            }
+
+            for key in self.legacyDisplayNameKeys(for: account) {
+                let displayName = rawDisplayNames[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !displayName.isEmpty {
+                    displayNames[email] = displayName
+                    break
+                }
+            }
+        }
+
+        for (rawKey, rawDisplayName) in rawDisplayNames {
+            let displayName = rawDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !displayName.isEmpty,
+                  let email = self.emailFromLegacyDisplayNameKey(rawKey),
+                  displayNames[email] == nil else {
+                continue
+            }
+
+            displayNames[email] = displayName
+        }
+
+        return displayNames
+    }
+
+    private func legacyDisplayNameKeys(for account: AccountSnapshot) -> [String] {
+        let email = self.normalizedEmail(account.email)
+        let accountID = account.accountId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseAccountID = legacyBaseAccountID(from: account.accountId)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let canonicalIdentity = canonicalAccountIdentity(for: account)
+        let planIdentity = self.legacyPlanIdentity(for: account)
+
+        return [
+            email,
+            canonicalIdentity,
+            planIdentity,
+            accountID,
+            baseAccountID,
+            email.isEmpty ? "" : "system::\(email)",
+        ]
+        .filter { !$0.isEmpty }
+        .reduce(into: [String]()) { keys, key in
+            if !keys.contains(key) {
+                keys.append(key)
+            }
+        }
+    }
+
+    private func legacyPlanIdentity(for account: AccountSnapshot) -> String {
+        let email = self.normalizedEmail(account.email)
+        let plan = account.plan
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !email.isEmpty, !plan.isEmpty else {
+            return ""
+        }
+
+        return "\(email)::\(plan)"
+    }
+
+    private func emailFromLegacyDisplayNameKey(_ key: String) -> String? {
+        var candidate = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if candidate.hasPrefix("system::") {
+            candidate.removeFirst("system::".count)
+        }
+
+        if let separatorRange = candidate.range(of: "::") {
+            candidate = String(candidate[..<separatorRange.lowerBound])
+        }
+
+        return candidate.contains("@") ? self.normalizedEmail(candidate) : nil
+    }
+
+    private func normalizedEmail(_ email: String) -> String {
+        email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     private func insertStorageLogLocked(_ entry: StorageLogEntry) throws {
