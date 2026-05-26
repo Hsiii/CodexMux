@@ -20,6 +20,7 @@ final class PulseCoordinator: ObservableObject {
     nonisolated(unsafe) private var authMonitorSource: DispatchSourceFileSystemObject?
     nonisolated(unsafe) private var authMonitorFileDescriptor: CInt = -1
     private var lastObservedAuthSignature: AuthFileSignature?
+    private var hasPendingAuthRetry = false
 
     var accountCount: Int {
         self.cache.accounts.count
@@ -78,6 +79,7 @@ final class PulseCoordinator: ObservableObject {
             incomingSnapshots.append(contentsOf: try await self.buildSystemSnapshotsIfAvailable())
         } catch {
             self.lastObservedAuthSignature = self.currentAuthFileSignature()
+            self.scheduleAuthRefreshRetryIfNeeded()
         }
 
         if !incomingSnapshots.isEmpty {
@@ -223,7 +225,7 @@ final class PulseCoordinator: ObservableObject {
                     ),
                     plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
                     source: "live system auth",
-                    isCurrentSystemAccount: workspaceAccountID == currentWorkspaceAccountID
+                    isCurrentSystemAccount: self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID
                 )
             )
         }
@@ -794,6 +796,20 @@ final class PulseCoordinator: ObservableObject {
             for: merged.accounts,
             config: config
         )
+    }
+
+    private func scheduleAuthRefreshRetryIfNeeded() {
+        guard !self.hasPendingAuthRetry else {
+            return
+        }
+
+        self.hasPendingAuthRetry = true
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            self.hasPendingAuthRetry = false
+            await self.syncNow()
+        }
     }
 
     private func startAuthFileMonitor() {
