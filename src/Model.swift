@@ -169,6 +169,7 @@ enum PulseError: Error, LocalizedError {
     case invalidAuthFile
     case invalidSessionToken
     case invalidUsageResponse
+    case workspaceListUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -178,6 +179,8 @@ enum PulseError: Error, LocalizedError {
             return "ChatGPT session cookie did not yield an access token."
         case .invalidUsageResponse:
             return "Usage endpoint did not contain enough fields to normalize."
+        case .workspaceListUnavailable:
+            return "Workspace list could not be loaded."
         }
     }
 }

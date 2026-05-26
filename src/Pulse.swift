@@ -74,15 +74,18 @@ final class PulseCoordinator: ObservableObject {
 
         let config = self.loadConfig()
         var incomingSnapshots: [AccountSnapshot] = []
+        var didRefreshSystemState = false
 
         do {
-            incomingSnapshots.append(contentsOf: try await self.buildSystemSnapshotsIfAvailable())
+            let systemRefresh = try await self.buildSystemSnapshotRefresh()
+            incomingSnapshots.append(contentsOf: systemRefresh.snapshots)
+            didRefreshSystemState = true
         } catch {
             self.lastObservedAuthSignature = self.currentAuthFileSignature()
             self.scheduleAuthRefreshRetryIfNeeded()
         }
 
-        if !incomingSnapshots.isEmpty {
+        if didRefreshSystemState || !incomingSnapshots.isEmpty {
             self.publishMergedSnapshots(
                 incomingSnapshots,
                 config: config
@@ -142,9 +145,9 @@ final class PulseCoordinator: ObservableObject {
         self.accountConfigStore.load()
     }
 
-    private func buildSystemSnapshotsIfAvailable() async throws -> [AccountSnapshot] {
+    private func buildSystemSnapshotRefresh() async throws -> SystemSnapshotRefresh {
         guard let identity = try self.loadSystemIdentity() else {
-            return []
+            return SystemSnapshotRefresh(snapshots: [])
         }
 
         let currentUsage = try await self.fetchUsagePayload(
@@ -162,27 +165,7 @@ final class PulseCoordinator: ObservableObject {
         )
 
         if workspaceItems.isEmpty {
-            return [
-                try self.normalizeUsage(
-                    currentUsage,
-                    accountID: currentUsage["account_id"] as? String
-                        ?? identity.accountId
-                        ?? identity.subject
-                        ?? UUID().uuidString,
-                    label: identity.name ?? currentUsage["email"] as? String ?? identity.email ?? "Current system account",
-                    email: currentUsage["email"] as? String ?? identity.email ?? "Unknown account",
-                    workspaceID: currentUsage["account_id"] as? String ?? identity.accountId,
-                    workspaceLabel: self.resolveWorkspaceName(
-                        currentUsage,
-                        workspaceItem: nil,
-                        identity: identity
-                    ),
-                    plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
-                    source: "live system auth",
-                    systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
-                    isCurrentSystemAccount: true
-                )
-            ]
+            throw PulseError.workspaceListUnavailable
         }
 
         var snapshots: [AccountSnapshot] = []
@@ -232,7 +215,7 @@ final class PulseCoordinator: ObservableObject {
             )
         }
 
-        return snapshots
+        return SystemSnapshotRefresh(snapshots: snapshots)
     }
 
     private func buildCookieSnapshot(for account: AccountConfig) async throws -> AccountSnapshot {
@@ -246,11 +229,11 @@ final class PulseCoordinator: ObservableObject {
         let workspaceAccountID = account.accountHeader?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             ? account.accountHeader?.trimmingCharacters(in: .whitespacesAndNewlines)
             : (rawUsage["account_id"] as? String)
-        let workspaceLabel = try await self.fetchWorkspaceLabel(
+        let workspaceLabel = (try? await self.fetchWorkspaceLabel(
             accessToken: accessToken,
             cookieHeader: account.chatGPTCookie,
             workspaceAccountID: workspaceAccountID
-        ) ?? account.workspaceLabel
+        )) ?? account.workspaceLabel
 
         return try self.normalizeUsage(
             rawUsage,
@@ -379,10 +362,12 @@ final class PulseCoordinator: ObservableObject {
         }
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode)
-        else {
-            return []
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw PulseError.workspaceListUnavailable
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw PulseError.workspaceListUnavailable
         }
 
         let payload = try JSONDecoder().decode(WorkspaceIdentity.self, from: data)
@@ -431,16 +416,17 @@ final class PulseCoordinator: ObservableObject {
     ) throws -> AccountSnapshot {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
         let now = ISO8601DateFormatter().string(from: Date())
-        let resolvedWorkspaceLabel = normalizedWorkspaceLabel(
-            self.resolveWorkspaceLabel(
+        let resolvedWorkspaceLabel = self.resolveWorkspaceLabel(
             payload: payload,
             fallback: workspaceLabel
-            ),
+        )
+        let displayWorkspaceLabel = normalizedWorkspaceLabel(
+            resolvedWorkspaceLabel,
             plan: plan
         )
         let resolvedPlan = normalizedPlanLabel(
             plan,
-            workspaceLabel: resolvedWorkspaceLabel
+            workspaceLabel: displayWorkspaceLabel
         )
         let snapshotKey = buildAccountPrimaryKey(
             email: email,
@@ -591,12 +577,9 @@ final class PulseCoordinator: ObservableObject {
             ? self.defaultWorkspaceLabel(for: identity, plan: payloadPlan)
             : fallbackName
 
-        return normalizedWorkspaceLabel(
-            self.resolveWorkspaceLabel(
-                payload: payload,
-                fallback: fallback
-            ),
-            plan: self.displayPlan(payloadPlan)
+        return self.resolveWorkspaceLabel(
+            payload: payload,
+            fallback: fallback
         )
     }
 
@@ -626,7 +609,7 @@ final class PulseCoordinator: ObservableObject {
             buildAccountPrimaryKey(
                 email: $0.email,
                 workspaceId: $0.accountHeader,
-                workspaceLabel: normalizedWorkspaceLabel($0.workspaceLabel, plan: $0.plan)
+                workspaceLabel: $0.workspaceLabel
             ) == accountIdentity
         })?.id
     }
@@ -805,28 +788,45 @@ final class PulseCoordinator: ObservableObject {
                 return snapshot
             }
 
-            let historicalLabels = Set(
-                existing.compactMap { candidate -> String? in
-                    guard candidate.source == "live system auth",
-                          normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
-                    else {
-                        return nil
-                    }
-
-                    let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmedLabel.isEmpty,
-                          trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
-                    else {
-                        return nil
-                    }
-
-                    return trimmedLabel
+            let historicalCandidates = existing.filter { candidate in
+                candidate.source == "live system auth"
+                    && normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
+            }
+            let nonPersonalHistoricalLabels = historicalCandidates.compactMap { candidate -> String? in
+                let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedLabel.isEmpty,
+                      trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
+                else {
+                    return nil
                 }
-            )
 
-            guard historicalLabels.count == 1,
-                  let preservedWorkspaceLabel = historicalLabels.first
-            else {
+                return trimmedLabel
+            }
+            let activeHistoricalLabels = historicalCandidates.compactMap { candidate -> String? in
+                guard candidate.isCurrentSystemAccount == true else {
+                    return nil
+                }
+
+                let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedLabel.isEmpty,
+                      trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
+                else {
+                    return nil
+                }
+
+                return trimmedLabel
+            }
+            let preservedWorkspaceLabel: String?
+
+            if Set(activeHistoricalLabels).count == 1 {
+                preservedWorkspaceLabel = activeHistoricalLabels.first
+            } else if Set(nonPersonalHistoricalLabels).count == 1 {
+                preservedWorkspaceLabel = nonPersonalHistoricalLabels.first
+            } else {
+                preservedWorkspaceLabel = nil
+            }
+
+            guard let preservedWorkspaceLabel else {
                 return snapshot
             }
 
@@ -995,6 +995,10 @@ final class PulseCoordinator: ObservableObject {
             size: size
         )
     }
+}
+
+private struct SystemSnapshotRefresh {
+    let snapshots: [AccountSnapshot]
 }
 
 private struct AuthFileSignature: Equatable {
