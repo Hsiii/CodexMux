@@ -3,6 +3,9 @@ import SwiftUI
 
 @MainActor
 final class PulseCoordinator: ObservableObject {
+    private static let liveSystemAuthSource = "live system auth"
+    private static let historicalSystemAuthSource = "historical system auth"
+
     @Published var cache = CachePayload(
         meta: CacheMeta(
             source: "native-swift-cache"
@@ -75,21 +78,21 @@ final class PulseCoordinator: ObservableObject {
         let config = self.loadConfig()
         var incomingSnapshots: [AccountSnapshot] = []
         var didRefreshSystemState = false
+        var refreshedSystemProfiles = Set<String>()
 
         do {
             let systemRefresh = try await self.buildSystemSnapshotRefresh()
             incomingSnapshots.append(contentsOf: systemRefresh.snapshots)
             didRefreshSystemState = true
+            refreshedSystemProfiles = systemRefresh.refreshedProfileIDs
+            self.publishMergedSnapshots(
+                incomingSnapshots,
+                refreshedSystemProfiles: refreshedSystemProfiles,
+                config: config
+            )
         } catch {
             self.lastObservedAuthSignature = self.currentAuthFileSignature()
             self.scheduleAuthRefreshRetryIfNeeded()
-        }
-
-        if didRefreshSystemState || !incomingSnapshots.isEmpty {
-            self.publishMergedSnapshots(
-                incomingSnapshots,
-                config: config
-            )
         }
 
         for account in config.accounts {
@@ -98,6 +101,9 @@ final class PulseCoordinator: ObservableObject {
                 incomingSnapshots.append(snapshot)
                 self.publishMergedSnapshots(
                     incomingSnapshots,
+                    refreshedSystemProfiles: didRefreshSystemState
+                        ? refreshedSystemProfiles
+                        : [],
                     config: config
                 )
             } catch {
@@ -147,7 +153,10 @@ final class PulseCoordinator: ObservableObject {
 
     private func buildSystemSnapshotRefresh() async throws -> SystemSnapshotRefresh {
         guard let identity = try self.loadSystemIdentity() else {
-            return SystemSnapshotRefresh(snapshots: [])
+            return SystemSnapshotRefresh(
+                snapshots: [],
+                refreshedProfileIDs: []
+            )
         }
 
         let currentUsage = try await self.fetchUsagePayload(
@@ -204,7 +213,7 @@ final class PulseCoordinator: ObservableObject {
                         identity: identity
                     ),
                     plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
-                    source: "live system auth",
+                    source: Self.liveSystemAuthSource,
                     systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
                     isCurrentSystemAccount: self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID
                 )
@@ -220,7 +229,20 @@ final class PulseCoordinator: ObservableObject {
             )
         }
 
-        return SystemSnapshotRefresh(snapshots: snapshots)
+        let refreshedProfileIDs = Set<String>(
+            snapshots.compactMap { snapshot in
+                guard snapshot.source == Self.liveSystemAuthSource else {
+                    return nil
+                }
+
+                return normalizedSystemAuthProfileID(snapshot.systemAuthProfileId)
+            }
+        )
+
+        return SystemSnapshotRefresh(
+            snapshots: snapshots,
+            refreshedProfileIDs: refreshedProfileIDs
+        )
     }
 
     private func buildCurrentSystemSnapshot(
@@ -244,7 +266,7 @@ final class PulseCoordinator: ObservableObject {
             workspaceID: workspaceID,
             workspaceLabel: workspaceLabel,
             plan: plan,
-            source: "live system auth",
+            source: Self.liveSystemAuthSource,
             systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
             isCurrentSystemAccount: true
         )
@@ -686,20 +708,19 @@ final class PulseCoordinator: ObservableObject {
 
     private func mergeSnapshots(
         existing: CachePayload,
-        incoming: [AccountSnapshot]
+        incoming: [AccountSnapshot],
+        refreshedSystemProfiles: Set<String>
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
 
         for account in existing.accounts {
-            if self.shouldDiscardSupersededSystemSnapshot(
+            let normalizedAccount = self.historicalizedSystemSnapshotIfNeeded(
                 account,
-                incoming: incoming
-            ) {
-                continue
-            }
-
-            let prior = existingByIdentity[account.accountId]
-            existingByIdentity[account.accountId] = self.preferredStoredSnapshot(prior, candidate: account)
+                incoming: incoming,
+                refreshedSystemProfiles: refreshedSystemProfiles
+            ) ?? account
+            let prior = existingByIdentity[normalizedAccount.accountId]
+            existingByIdentity[normalizedAccount.accountId] = self.preferredStoredSnapshot(prior, candidate: normalizedAccount)
         }
 
         var activeIdentity: String?
@@ -803,34 +824,55 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
-    private func shouldDiscardSupersededSystemSnapshot(
+    private func historicalizedSystemSnapshotIfNeeded(
         _ existing: AccountSnapshot,
-        incoming: [AccountSnapshot]
-    ) -> Bool {
-        guard existing.source == "live system auth",
+        incoming: [AccountSnapshot],
+        refreshedSystemProfiles: Set<String>
+    ) -> AccountSnapshot? {
+        guard existing.source == Self.liveSystemAuthSource,
               let existingProfileID = normalizedSystemAuthProfileID(existing.systemAuthProfileId)
         else {
-            return false
+            return nil
+        }
+
+        guard refreshedSystemProfiles.contains(existingProfileID) else {
+            return nil
         }
 
         let incomingForProfile = incoming.filter {
-            $0.source == "live system auth"
+            $0.source == Self.liveSystemAuthSource
                 && normalizedSystemAuthProfileID($0.systemAuthProfileId) == existingProfileID
         }
 
         guard !incomingForProfile.isEmpty else {
-            return false
+            return nil
         }
 
         let existingWorkspaceSlot = self.systemWorkspaceSlot(for: existing)
         guard existingWorkspaceSlot != nil else {
-            return false
+            return nil
         }
 
-        return incomingForProfile.contains { candidate in
-            candidate.accountId != existing.accountId
-                && self.systemWorkspaceSlot(for: candidate) == existingWorkspaceSlot
+        guard !incomingForProfile.contains(where: { candidate in
+            self.systemWorkspaceSlot(for: candidate) == existingWorkspaceSlot
+        }) else {
+            return nil
         }
+
+        return AccountSnapshot(
+            accountId: existing.accountId,
+            label: existing.label,
+            email: existing.email,
+            workspaceId: existing.workspaceId,
+            workspaceLabel: existing.workspaceLabel,
+            plan: existing.plan,
+            source: Self.historicalSystemAuthSource,
+            systemAuthProfileId: existing.systemAuthProfileId,
+            isCurrentSystemAccount: false,
+            lastSyncedAt: existing.lastSyncedAt,
+            weeklyWindow: existing.weeklyWindow,
+            rollingWindow: existing.rollingWindow
+        )
     }
 
     private func systemWorkspaceSlot(for account: AccountSnapshot) -> String? {
@@ -854,11 +896,13 @@ final class PulseCoordinator: ObservableObject {
 
     private func publishMergedSnapshots(
         _ snapshots: [AccountSnapshot],
+        refreshedSystemProfiles: Set<String>,
         config: PulseConfig
     ) {
         let merged = self.mergeSnapshots(
             existing: self.cache,
-            incoming: snapshots
+            incoming: snapshots,
+            refreshedSystemProfiles: refreshedSystemProfiles
         )
 
         try? self.cacheStore.save(merged)
@@ -949,6 +993,7 @@ final class PulseCoordinator: ObservableObject {
 
 private struct SystemSnapshotRefresh {
     let snapshots: [AccountSnapshot]
+    let refreshedProfileIDs: Set<String>
 }
 
 private struct AuthFileSignature: Equatable {
