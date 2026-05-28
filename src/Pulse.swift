@@ -698,27 +698,20 @@ final class PulseCoordinator: ObservableObject {
         var activeIdentity: String?
 
         for snapshot in incoming {
-            existingByIdentity[snapshot.accountId] = AccountSnapshot(
-                accountId: snapshot.accountId,
-                label: snapshot.label,
-                email: snapshot.email,
-                workspaceId: snapshot.workspaceId,
-                workspaceLabel: snapshot.workspaceLabel,
-                plan: snapshot.plan,
-                source: snapshot.source,
-                systemAuthProfileId: snapshot.systemAuthProfileId,
-                isCurrentSystemAccount: snapshot.isCurrentSystemAccount,
-                lastSyncedAt: snapshot.lastSyncedAt,
-                weeklyWindow: snapshot.weeklyWindow,
-                rollingWindow: snapshot.rollingWindow
+            let mergedSnapshot = self.mergedIncomingSnapshot(
+                snapshot,
+                existingSnapshots: Array(existingByIdentity.values)
             )
+            existingByIdentity[mergedSnapshot.accountId] = mergedSnapshot
 
-            if snapshot.isCurrentSystemAccount == true {
-                activeIdentity = snapshot.accountId
+            if mergedSnapshot.isCurrentSystemAccount == true {
+                activeIdentity = mergedSnapshot.accountId
             }
         }
 
-        var mergedAccounts = Array(existingByIdentity.values)
+        var mergedAccounts = self.collapsedBrokenSystemSnapshots(
+            in: Array(existingByIdentity.values)
+        )
 
         if let activeIdentity {
             mergedAccounts = mergedAccounts.map { account in
@@ -768,6 +761,44 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
+    private func mergedIncomingSnapshot(
+        _ incoming: AccountSnapshot,
+        existingSnapshots: [AccountSnapshot]
+    ) -> AccountSnapshot {
+        guard let existing = self.cachedSeatSnapshot(
+            for: incoming,
+            in: existingSnapshots
+        ) else {
+            return incoming
+        }
+
+        let shouldPreserveSeatMetadata = self.shouldPreserveCachedSeatMetadata(
+            existing: existing,
+            incoming: incoming
+        )
+
+        return AccountSnapshot(
+            accountId: shouldPreserveSeatMetadata ? existing.accountId : incoming.accountId,
+            label: incoming.label,
+            email: incoming.email,
+            workspaceId: shouldPreserveSeatMetadata ? existing.workspaceId : incoming.workspaceId,
+            workspaceLabel: shouldPreserveSeatMetadata ? existing.workspaceLabel : incoming.workspaceLabel,
+            plan: shouldPreserveSeatMetadata ? existing.plan : incoming.plan,
+            source: incoming.source,
+            systemAuthProfileId: incoming.systemAuthProfileId ?? existing.systemAuthProfileId,
+            isCurrentSystemAccount: incoming.isCurrentSystemAccount,
+            lastSyncedAt: incoming.lastSyncedAt,
+            weeklyWindow: self.preferredUsageWindow(
+                current: existing.weeklyWindow,
+                candidate: incoming.weeklyWindow
+            ),
+            rollingWindow: self.preferredUsageWindow(
+                current: existing.rollingWindow,
+                candidate: incoming.rollingWindow
+            )
+        )
+    }
+
     private func preferredStoredSnapshot(
         _ current: AccountSnapshot?,
         candidate: AccountSnapshot
@@ -794,6 +825,130 @@ final class PulseCoordinator: ObservableObject {
             weeklyWindow: newest.weeklyWindow,
             rollingWindow: newest.rollingWindow
         )
+    }
+
+    private func cachedSeatSnapshot(
+        for incoming: AccountSnapshot,
+        in existingSnapshots: [AccountSnapshot]
+    ) -> AccountSnapshot? {
+        guard incoming.source == "live system auth" else {
+            return existingSnapshots.first(where: { $0.accountId == incoming.accountId })
+        }
+
+        let exactMatch = existingSnapshots.first(where: { $0.accountId == incoming.accountId })
+        let incomingProfileID = normalizedSystemAuthProfileID(incoming.systemAuthProfileId)
+        let sameProfileSnapshots = existingSnapshots.filter {
+            $0.source == "live system auth"
+                && normalizedSystemAuthProfileID($0.systemAuthProfileId) == incomingProfileID
+        }
+
+        if !self.isBrokenSeatFallbackSnapshot(incoming) {
+            return exactMatch
+        }
+
+        let workspaceBackedCandidate = sameProfileSnapshots
+            .filter { self.shouldPreserveCachedSeatMetadata(existing: $0, incoming: incoming) }
+            .max { left, right in
+                self.snapshotRecency(left) < self.snapshotRecency(right)
+            }
+
+        return workspaceBackedCandidate ?? exactMatch
+    }
+
+    private func shouldPreserveCachedSeatMetadata(
+        existing: AccountSnapshot,
+        incoming: AccountSnapshot
+    ) -> Bool {
+        guard existing.source == "live system auth",
+              incoming.source == "live system auth"
+        else {
+            return false
+        }
+
+        let existingWorkspace = normalizedWorkspaceLabel(
+            existing.workspaceLabel,
+            plan: existing.plan
+        )
+        let incomingWorkspace = normalizedWorkspaceLabel(
+            incoming.workspaceLabel,
+            plan: incoming.plan
+        )
+        let existingWorkspaceID = resolvedWorkspaceIdentity(
+            accountId: existing.accountId,
+            workspaceId: existing.workspaceId
+        )
+        let incomingWorkspaceID = resolvedWorkspaceIdentity(
+            accountId: incoming.accountId,
+            workspaceId: incoming.workspaceId
+        )
+
+        guard existingWorkspaceID != nil,
+              !existingWorkspace.isEmpty,
+              existingWorkspace != "Personal"
+        else {
+            return false
+        }
+
+        return incomingWorkspaceID == nil
+            || incomingWorkspace.isEmpty
+            || incomingWorkspace == "Personal"
+            || !incoming.weeklyWindow.available
+    }
+
+    private func preferredUsageWindow(
+        current: UsageWindow,
+        candidate: UsageWindow
+    ) -> UsageWindow {
+        candidate.available ? candidate : current
+    }
+
+    private func isBrokenSeatFallbackSnapshot(_ account: AccountSnapshot) -> Bool {
+        guard account.source == "live system auth" else {
+            return false
+        }
+
+        let workspaceID = resolvedWorkspaceIdentity(
+            accountId: account.accountId,
+            workspaceId: account.workspaceId
+        )
+        let workspace = normalizedWorkspaceLabel(
+            account.workspaceLabel,
+            plan: account.plan
+        )
+
+        return workspaceID == nil
+            && workspace == "Personal"
+            && !account.weeklyWindow.available
+    }
+
+    private func collapsedBrokenSystemSnapshots(
+        in accounts: [AccountSnapshot]
+    ) -> [AccountSnapshot] {
+        accounts.filter { candidate in
+            guard self.isBrokenSeatFallbackSnapshot(candidate),
+                  let candidateProfileID = normalizedSystemAuthProfileID(candidate.systemAuthProfileId)
+            else {
+                return true
+            }
+
+            return !accounts.contains { peer in
+                guard peer.accountId != candidate.accountId,
+                      peer.source == "live system auth",
+                      normalizedSystemAuthProfileID(peer.systemAuthProfileId) == candidateProfileID
+                else {
+                    return false
+                }
+
+                return self.shouldPreserveCachedSeatMetadata(
+                    existing: peer,
+                    incoming: candidate
+                )
+            }
+        }
+    }
+
+    private func snapshotRecency(_ account: AccountSnapshot) -> Date {
+        ISO8601DateFormatter().date(from: account.lastSyncedAt) ?? .distantPast
     }
 
     private func shouldDiscardSupersededSystemSnapshot(
