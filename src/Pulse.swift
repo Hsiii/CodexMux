@@ -459,7 +459,7 @@ final class PulseCoordinator: ObservableObject {
             plan,
             workspaceLabel: displayWorkspaceLabel
         )
-        let snapshotKey = buildAccountPrimaryKey(
+        let snapshotKey = AccountIdentity.storageKey(
             email: email,
             workspaceId: workspaceID,
             workspaceLabel: resolvedWorkspaceLabel
@@ -625,23 +625,13 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func trimmedWorkspaceAccountID(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !trimmed.isEmpty
-        else {
-            return nil
-        }
-
-        return trimmed
+        AccountIdentity.trimmedWorkspaceID(value)
     }
 
     private func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
-        let accountIdentity = canonicalAccountIdentity(for: account)
+        let accountIdentity = AccountIdentity.key(for: account).storageKey
         return config.accounts.first(where: {
-            buildAccountPrimaryKey(
-                email: $0.email,
-                workspaceId: $0.accountHeader,
-                workspaceLabel: $0.workspaceLabel
-            ) == accountIdentity
+            AccountIdentity.key(for: $0).storageKey == accountIdentity
         })?.id
     }
 
@@ -873,11 +863,11 @@ final class PulseCoordinator: ObservableObject {
             incoming.workspaceLabel,
             plan: incoming.plan
         )
-        let existingWorkspaceID = resolvedWorkspaceIdentity(
+        let existingWorkspaceID = AccountIdentity.resolvedWorkspaceID(
             accountId: existing.accountId,
             workspaceId: existing.workspaceId
         )
-        let incomingWorkspaceID = resolvedWorkspaceIdentity(
+        let incomingWorkspaceID = AccountIdentity.resolvedWorkspaceID(
             accountId: incoming.accountId,
             workspaceId: incoming.workspaceId
         )
@@ -907,7 +897,7 @@ final class PulseCoordinator: ObservableObject {
             return false
         }
 
-        let workspaceID = resolvedWorkspaceIdentity(
+        let workspaceID = AccountIdentity.resolvedWorkspaceID(
             accountId: account.accountId,
             workspaceId: account.workspaceId
         )
@@ -982,7 +972,7 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func systemWorkspaceSlot(for account: AccountSnapshot) -> String? {
-        if let workspaceID = resolvedWorkspaceIdentity(
+        if let workspaceID = AccountIdentity.resolvedWorkspaceID(
             accountId: account.accountId,
             workspaceId: account.workspaceId
         ) {

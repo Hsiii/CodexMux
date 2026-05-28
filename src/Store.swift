@@ -83,21 +83,13 @@ final class CacheStore {
     private func normalizedAccountIdentity(
         for account: AccountSnapshot
     ) -> AccountSnapshot {
-        let workspaceID = resolvedWorkspaceIdentity(
-            accountId: account.accountId,
-            workspaceId: account.workspaceId
-        )
-        let normalizedAccountID = buildAccountPrimaryKey(
-            email: account.email,
-            workspaceId: workspaceID,
-            workspaceLabel: account.workspaceLabel
-        )
+        let identity = AccountIdentity.key(for: account)
 
         return AccountSnapshot(
-            accountId: normalizedAccountID,
+            accountId: identity.storageKey,
             label: account.label,
             email: account.email,
-            workspaceId: workspaceID,
+            workspaceId: identity.workspaceSlot,
             workspaceLabel: account.workspaceLabel,
             plan: account.plan,
             source: account.source,
@@ -188,11 +180,7 @@ final class DisplayNameStore: ObservableObject {
     }
 
     private func normalizedEmail(for account: AccountSnapshot) -> String {
-        let normalizedEmail = account.email
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        return normalizedEmail
+        AccountIdentity.normalizedEmail(account.email)
     }
 
     private func resolvedDisplayName(for account: AccountSnapshot) -> String {

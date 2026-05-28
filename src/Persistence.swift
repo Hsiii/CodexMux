@@ -755,12 +755,12 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         var displayNames: [String: String] = [:]
 
         for account in accounts {
-            let email = self.normalizedEmail(account.email)
+            let email = AccountIdentity.normalizedEmail(account.email)
             guard !email.isEmpty, displayNames[email] == nil else {
                 continue
             }
 
-            for key in self.legacyDisplayNameKeys(for: account) {
+            for key in AccountIdentity.legacyDisplayNameKeys(for: account) {
                 let displayName = rawDisplayNames[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if !displayName.isEmpty {
                     displayNames[email] = displayName
@@ -772,7 +772,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         for (rawKey, rawDisplayName) in rawDisplayNames {
             let displayName = rawDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !displayName.isEmpty,
-                  let email = self.emailFromLegacyDisplayNameKey(rawKey),
+                  let email = AccountIdentity.emailFromLegacyDisplayNameKey(rawKey),
                   displayNames[email] == nil else {
                 continue
             }
@@ -782,64 +782,6 @@ final class DurableStoreCoordinator: @unchecked Sendable {
 
         return displayNames
     }
-
-    private func legacyDisplayNameKeys(for account: AccountSnapshot) -> [String] {
-        let email = self.normalizedEmail(account.email)
-        let accountID = account.accountId.trimmingCharacters(in: .whitespacesAndNewlines)
-        let baseAccountID = legacyBaseAccountID(from: account.accountId)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let canonicalIdentity = canonicalAccountIdentity(for: account)
-        let planIdentity = self.legacyPlanIdentity(for: account)
-
-        return [
-            email,
-            canonicalIdentity,
-            planIdentity,
-            accountID,
-            baseAccountID,
-            email.isEmpty ? "" : "system::\(email)",
-        ]
-        .filter { !$0.isEmpty }
-        .reduce(into: [String]()) { keys, key in
-            if !keys.contains(key) {
-                keys.append(key)
-            }
-        }
-    }
-
-    private func legacyPlanIdentity(for account: AccountSnapshot) -> String {
-        let email = self.normalizedEmail(account.email)
-        let plan = account.plan
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        guard !email.isEmpty, !plan.isEmpty else {
-            return ""
-        }
-
-        return "\(email)::\(plan)"
-    }
-
-    private func emailFromLegacyDisplayNameKey(_ key: String) -> String? {
-        var candidate = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        if candidate.hasPrefix("system::") {
-            candidate.removeFirst("system::".count)
-        }
-
-        if let separatorRange = candidate.range(of: "::") {
-            candidate = String(candidate[..<separatorRange.lowerBound])
-        }
-
-        return candidate.contains("@") ? self.normalizedEmail(candidate) : nil
-    }
-
-    private func normalizedEmail(_ email: String) -> String {
-        email
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-    }
-
     private func insertStorageLogLocked(_ entry: StorageLogEntry) throws {
         let statement = try self.prepareLocked(
             "INSERT INTO storage_log (id, event, status, committed_at, touched_paths_json) VALUES (?, ?, ?, ?, ?);"

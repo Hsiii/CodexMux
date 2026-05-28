@@ -109,17 +109,6 @@ func displayWindowLabel(for window: UsageWindow) -> String {
     return window.label
 }
 
-func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
-    return buildAccountPrimaryKey(
-        email: account.email,
-        workspaceId: resolvedWorkspaceIdentity(
-            accountId: account.accountId,
-            workspaceId: account.workspaceId
-        ),
-        workspaceLabel: account.workspaceLabel
-    )
-}
-
 func isPersonalPlan(_ plan: String) -> Bool {
     let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     return normalized.contains("free")

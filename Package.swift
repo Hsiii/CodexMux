@@ -14,6 +14,7 @@ let package = Package(
             sources: [
                 "App.swift",
                 "Model.swift",
+                "AccountIdentity.swift",
                 "Path.swift",
                 "Persistence.swift",
                 "Store.swift",
