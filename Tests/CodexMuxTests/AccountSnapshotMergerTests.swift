@@ -307,6 +307,44 @@ final class AccountSnapshotMergerTests: XCTestCase {
         XCTAssertEqual(merged.accounts[0].isCurrentSystemAccount, true)
     }
 
+    func testLoadedPersonalAliasCompactionKeepsNewerScopedPersonalSeat() {
+        let merger = AccountSnapshotMerger()
+        let stalePersonal = self.makeSnapshot(
+            accountId: "person@example.com",
+            email: "person@example.com",
+            workspaceId: nil,
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1",
+            lastSyncedAt: "2026-05-26T00:00:00Z"
+        )
+        let scopedPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-abc",
+            email: "person@example.com",
+            workspaceId: "user-abc",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1",
+            lastSyncedAt: "2026-05-29T00:00:00Z"
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: []
+            ),
+            incoming: [stalePersonal, scopedPersonal],
+            systemStateWasRefreshed: false
+        )
+
+        XCTAssertEqual(merged.accounts.map(\.accountId), [scopedPersonal.accountId])
+        XCTAssertEqual(merged.accounts[0].weeklyWindow.usedMinutes, scopedPersonal.weeklyWindow.usedMinutes)
+    }
+
     func testWorkspaceBackedTeamSeatDoesNotSupersedeUnscopedPersonalSystemSeat() {
         let merger = AccountSnapshotMerger()
         let personal = self.makeSnapshot(

@@ -3,6 +3,7 @@ import SwiftUI
 
 final class CacheStore {
     private let durableStore = DurableStoreCoordinator.shared
+    private let snapshotMerger = AccountSnapshotMerger()
     private let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -14,7 +15,9 @@ final class CacheStore {
             fallback: self.emptyPayload()
         )
 
-        let migratedPayload = self.migrateLegacyAccounts(in: payload)
+        let migratedPayload = self.compactLoadedAccounts(
+            in: self.migrateLegacyAccounts(in: payload)
+        )
         let migratedData = try? self.encoder.encode(migratedPayload)
         let originalData = try? self.encoder.encode(payload)
 
@@ -77,6 +80,17 @@ final class CacheStore {
                 source: payload.meta.source
             ),
             accounts: migratedAccounts
+        )
+    }
+
+    private func compactLoadedAccounts(in payload: CachePayload) -> CachePayload {
+        self.snapshotMerger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: payload.meta.source),
+                accounts: []
+            ),
+            incoming: payload.accounts,
+            systemStateWasRefreshed: false
         )
     }
 
