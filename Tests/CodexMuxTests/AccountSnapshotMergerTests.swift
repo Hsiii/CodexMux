@@ -137,11 +137,85 @@ final class AccountSnapshotMergerTests: XCTestCase {
         XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == workspaceB.accountId }))
     }
 
+    func testStablePersonalWorkspaceSupersedesStaleUnscopedPersonalSystemSeat() {
+        let merger = AccountSnapshotMerger()
+        let stalePersonal = self.makeSnapshot(
+            accountId: "person@example.com",
+            email: "person@example.com",
+            workspaceId: nil,
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1"
+        )
+        let currentPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-abc",
+            email: "person@example.com",
+            workspaceId: "user-abc",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: true,
+            systemAuthProfileId: "profile-1"
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: [stalePersonal]
+            ),
+            incoming: [currentPersonal],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.map(\.accountId), [currentPersonal.accountId])
+        XCTAssertEqual(merged.accounts[0].isCurrentSystemAccount, true)
+    }
+
+    func testWorkspaceBackedTeamSeatDoesNotSupersedeUnscopedPersonalSystemSeat() {
+        let merger = AccountSnapshotMerger()
+        let personal = self.makeSnapshot(
+            accountId: "person@example.com",
+            email: "person@example.com",
+            workspaceId: nil,
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1"
+        )
+        let team = self.makeSnapshot(
+            accountId: "person@example.com::workspace-a",
+            email: "person@example.com",
+            workspaceId: "workspace-a",
+            workspaceLabel: "Workspace A",
+            plan: "Codex Team",
+            source: "live system auth",
+            isCurrentSystemAccount: true,
+            systemAuthProfileId: "profile-1"
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: [personal]
+            ),
+            incoming: [team],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.count, 2)
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == personal.accountId }))
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == team.accountId }))
+    }
+
     private func makeSnapshot(
         accountId: String,
         email: String,
         workspaceId: String?,
         workspaceLabel: String,
+        plan: String = "Codex Team",
         source: String,
         isCurrentSystemAccount: Bool?,
         systemAuthProfileId: String? = nil,
@@ -153,7 +227,7 @@ final class AccountSnapshotMergerTests: XCTestCase {
             email: email,
             workspaceId: workspaceId,
             workspaceLabel: workspaceLabel,
-            plan: "Codex Team",
+            plan: plan,
             source: source,
             systemAuthProfileId: systemAuthProfileId,
             isCurrentSystemAccount: isCurrentSystemAccount,

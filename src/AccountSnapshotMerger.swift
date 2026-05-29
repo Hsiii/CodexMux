@@ -28,7 +28,10 @@ struct AccountSnapshotMerger {
         }
 
         var mergedAccounts = self.collapsedBrokenSystemSnapshots(
-            in: Array(existingByIdentity.values)
+            in: self.discardingSupersededSystemSnapshots(
+                Array(existingByIdentity.values),
+                incoming: incoming
+            )
         )
 
         if let activeIdentity {
@@ -256,15 +259,57 @@ struct AccountSnapshotMerger {
             return false
         }
 
-        let existingWorkspaceSlot = self.systemWorkspaceSlot(for: existing)
-        guard existingWorkspaceSlot != nil else {
+        return incomingForProfile.contains { candidate in
+            candidate.accountId != existing.accountId
+                && self.clearlySupersedesSystemSnapshot(candidate, existing: existing)
+        }
+    }
+
+    private func discardingSupersededSystemSnapshots(
+        _ accounts: [AccountSnapshot],
+        incoming: [AccountSnapshot]
+    ) -> [AccountSnapshot] {
+        accounts.filter {
+            !self.shouldDiscardSupersededSystemSnapshot($0, incoming: incoming)
+        }
+    }
+
+    private func clearlySupersedesSystemSnapshot(
+        _ candidate: AccountSnapshot,
+        existing: AccountSnapshot
+    ) -> Bool {
+        guard candidate.source == "live system auth",
+              AccountIdentity.normalizedEmail(candidate.email) == AccountIdentity.normalizedEmail(existing.email)
+        else {
             return false
         }
 
-        return incomingForProfile.contains { candidate in
-            candidate.accountId != existing.accountId
-                && self.systemWorkspaceSlot(for: candidate) == existingWorkspaceSlot
+        let existingWorkspaceSlot = self.systemWorkspaceSlot(for: existing)
+        let candidateWorkspaceSlot = self.systemWorkspaceSlot(for: candidate)
+
+        if let existingWorkspaceSlot {
+            return candidateWorkspaceSlot == existingWorkspaceSlot
         }
+
+        guard let candidateWorkspaceSlot,
+              candidateWorkspaceSlot.hasPrefix("user-")
+        else {
+            return false
+        }
+
+        let existingWorkspace = normalizedWorkspaceLabel(
+            existing.workspaceLabel,
+            plan: existing.plan
+        )
+        let candidateWorkspace = normalizedWorkspaceLabel(
+            candidate.workspaceLabel,
+            plan: candidate.plan
+        )
+
+        return existingWorkspace == "Personal"
+            && candidateWorkspace == "Personal"
+            && isPersonalPlan(existing.plan)
+            && isPersonalPlan(candidate.plan)
     }
 
     private func systemWorkspaceSlot(for account: AccountSnapshot) -> String? {
