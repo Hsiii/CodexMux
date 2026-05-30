@@ -17,7 +17,15 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 
 ## Install
 
-Open [CodexMux.app](dist/CodexMux.app) directly or [CodexMux.dmg](dist/CodexMux.dmg) to install it to your Applications folder.
+CodexMux does not currently ship notarized macOS builds. To build a local DMG:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+brew install xcodegen
+./scripts/package-dmg.sh
+```
+
+The resulting DMG is ad-hoc signed for local use, not Developer ID signed for redistribution.
 
 ## Development
 
